@@ -278,7 +278,7 @@ const ProductionReport = () => {
 
     return Object.entries(grouped)
       .sort(([, a], [, b]) => b - a)
-      .slice(0, 10)
+      .slice(0, 5) // Top 5 clients
       .map(([name, vol], index) => ({
         id: name,
         rank: index + 1,
@@ -287,6 +287,7 @@ const ProductionReport = () => {
       }));
   }, [filteredRecords]); // Eliminamos CLIENT_MAPPING de la dependencia ya que es una constante
 
+  
   // 4. Production by Article (Group by 'articulo')
   const productionByArticle = useMemo(() => {
     const grouped = {};
@@ -430,7 +431,7 @@ const ProductionReport = () => {
           </div>
 
           {/* --- CENTER COLUMN (Span 6): Production by Plant --- */}
-          <div className="lg:col-span-6 min-h-[500px]">
+          <div className="lg:col-span-6 max-h-[500px] h-auto">
             <Card className="h-full bg-slate-950 border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)] flex flex-col">
               <CardHeader className="pb-2">
                 <CardTitle className="text-[#06b6d4] text-lg font-bold tracking-wide">Producción por Planta</CardTitle>
@@ -472,80 +473,59 @@ const ProductionReport = () => {
             </Card>
           </div>
 
-          {/* --- RIGHT COLUMN (Span 3): Map --- */}
-          <div className="lg:col-span-3 min-h-[500px]">
-            <Card className="h-full bg-slate-950 border-border overflow-hidden flex flex-col">
-              <CardHeader className="pb-2 bg-slate-900/50">
-                <CardTitle className="text-sm font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
-                  <MapIcon className="w-4 h-4" /> Mapa Chile — Producción
-                </CardTitle>
+          {/* --- RIGHT COLUMN (Span 3): top client--- */}
+          <div className="lg:col-span-3 max-h-[500px] h-auto">
+
+            <Card className="h-full bg-slate-900/20 border-border flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-lg">Top Clientes Consolidados</CardTitle>
+                <CardDescription>Ranking por volumen</CardDescription>
               </CardHeader>
-              <div className="flex-1 relative bg-slate-900/20">
-                <ProductionMap plants={plantsMapData} />
-              </div>
+
+              <CardContent className="overflow-y-auto pr-2 scrollbar-thin">
+                {productionByClient.map(client => (
+                  <div
+                    key={client.id}
+                    className="flex items-center justify-between mb-3 p-2 rounded-lg bg-white/5 hover:bg-white/10"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                        client.rank <= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {client.rank}
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-medium">{client.client_name}</p>
+                        <div className="bg-muted/30 h-1.5 mt-1 rounded-full overflow-hidden w-24">
+                          <div
+                            className="h-full bg-primary/70 rounded-full"
+                            style={{
+                              width: `${(client.volume_kilos / (productionByClient[0]?.volume_kilos || 1)) * 100}%`
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <span className="text-sm font-mono text-muted-foreground">
+                      {parseInt(client.volume_kilos).toLocaleString()} kg
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
             </Card>
           </div>
 
         </div>
       </section>
 
-      {/* --- SECTION 2: ADDITIONAL CHARTS (Trajectory & Top Clients) --- */}
+      {/* --- SECTION 2: ADDITIONAL CHARTS (Trajectory) --- */}
       <section className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="lg:col-span-2">
           {/* ProductionTrajectory component is assumed to handle its own internal translations if needed */}
           <ProductionTrajectory records={productionRecords} clientMapping={CLIENT_MAPPING} />
         </div>
-
-        {/* Top Clients Moved Here to preserve data but respect top layout */}
-        <Card className="bg-slate-900/20 border-border">
-          <CardHeader>
-            <CardTitle className="text-lg">Top Clientes Consolidados</CardTitle>
-            <CardDescription>Ranking por volumen de producción</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px] overflow-y-auto pr-2 scrollbar-thin">
-            <div className="space-y-4">
-              {productionByClient.map((client) => (
-                <div key={client.id} className="flex items-center justify-between hover:bg-white/5 p-2 rounded-lg transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${client.rank <= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-                      {client.rank}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{client.client_name}</p>
-                      <div className="bg-muted/30 h-1.5 mt-1 rounded-full overflow-hidden w-24">
-                        <div
-                          className="h-full bg-primary/70 rounded-full"
-                          style={{ width: `${(client.volume_kilos / (productionByClient[0]?.volume_kilos || 1)) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-sm font-mono text-muted-foreground">{parseInt(client.volume_kilos).toLocaleString()} kg</span>
-                </div>
-              ))}
-              {productionByClient.length === 0 && <div className="text-center text-muted-foreground py-10">Sin datos</div>}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-slate-900/20 border-border flex flex-col justify-center items-center p-6">
-          <div className="relative w-40 h-40 flex items-center justify-center">
-            <svg className="w-full h-full transform -rotate-90">
-              <circle cx="80" cy="80" r="70" stroke="currentColor" strokeWidth="10" fill="transparent" className="text-muted/20" />
-              <circle
-                cx="80" cy="80" r="70"
-                stroke="currentColor" strokeWidth="10" fill="transparent"
-                strokeDasharray={440}
-                strokeDashoffset={440 - (440 * efficiencyVal) / 100}
-                className={`${parseFloat(efficiencyVal) > 90 ? 'text-emerald-500' : 'text-amber-500'} transition-all duration-1000 ease-out`}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-4xl font-bold">{efficiencyVal.toFixed(1)}%</span>
-              <span className="text-xs uppercase text-muted-foreground mt-1">Eficiencia</span> {/* Label translated */}
-            </div>
-          </div>
-        </Card>
       </section>
 
       {/* --- SECTION 3: EXECUTIVE SUMMARY (Dynamic) --- */}

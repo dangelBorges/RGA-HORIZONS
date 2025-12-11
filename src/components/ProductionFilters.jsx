@@ -71,31 +71,7 @@ const ProductionFilters = ({ filters, onFilterChange, availableYears = [] }) => 
               </Select>
             </div>
 
-            {/* Date Range - From */}
-            <div className="w-full lg:w-44 space-y-2">
-              <Label className="text-xs text-slate-400 flex items-center gap-1">
-                <CalendarDays className="w-3 h-3" /> Desde
-              </Label>
-              <Input 
-                type="date" 
-                value={filters.dateFrom}
-                onChange={(e) => handleChange('dateFrom', e.target.value)}
-                className="bg-slate-900 border-slate-700 text-slate-200 h-9 text-xs"
-              />
-            </div>
-
-             {/* Date Range - To */}
-             <div className="w-full lg:w-44 space-y-2">
-              <Label className="text-xs text-slate-400 flex items-center gap-1">
-                <CalendarDays className="w-3 h-3" /> Hasta
-              </Label>
-              <Input 
-                type="date" 
-                value={filters.dateTo}
-                onChange={(e) => handleChange('dateTo', e.target.value)}
-                className="bg-slate-900 border-slate-700 text-slate-200 h-9 text-xs"
-              />
-            </div>
+            
 
             <div className="flex-1 text-right hidden lg:block">
               <span className="text-[10px] text-cyan-500/50 uppercase font-mono">
