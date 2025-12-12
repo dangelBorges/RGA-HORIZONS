@@ -46,25 +46,76 @@ export const useInventoryReports = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data: warehouse, error: warehouseError } = await supabase.from('reports_warehouse').select('*').order('last_updated', { ascending: false });
+        // === WAREHOUSE ===
+        const { data: warehouse, error: warehouseError } =
+          await supabase
+            .from("reports_warehouse")
+            .select("*")
+            .order("last_updated", { ascending: false });
+
         if (warehouseError) throw warehouseError;
 
-        const { data: transit, error: transitError } = await supabase.from('reports_transit').select('*').order('eta', { ascending: true });
+        // === TRANSIT (NUEVA TABLA COMPLEJA) ===
+        const { data: transitRaw, error: transitError } =
+          await supabase
+            .from("reports_transit")
+            .select("*");
+
         if (transitError) throw transitError;
 
+        // Transformar filas → múltiples OCs
+        const expandTransitRows = () => {
+          const all = [];
+
+          transitRaw.forEach(row => {
+            for (let i = 1; i <= 6; i++) {
+              const oc = row[`oc${i}`];
+              const cantidad = row[`cantidad${i}`];
+              const eta = row[`eta${i}`];
+              const origen = row[`origen${i}`];
+
+              if (oc && cantidad) {
+                all.push({
+                  id: `${row.id}-${i}`,
+                  oc_number: oc,
+                  articulo: row.mp,
+                  descripcion: row.descripcion,
+                  cantidad_kilos: parseFloat(cantidad),
+                  eta,
+                  origen,
+                  status: "En tránsito"
+                });
+              }
+            }
+          });
+
+          return all;
+        };
+
+        const transitParsed = expandTransitRows();
+
         setWarehouseData(warehouse || []);
-        setTransitData(transit || []);
+        setTransitData(transitParsed || []);
+
       } catch (error) {
-        console.error('Error fetching inventory reports:', error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load inventory reports' });
+        console.error("Error fetching inventory reports:", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to load inventory reports",
+        });
       } finally {
         setLoading(false);
       }
     };
+
     fetchData();
   }, [toast]);
+
   return { warehouseData, transitData, loading };
 };
+
+
 
 export const useProductionReports = () => {
   const [productionRecords, setProductionRecords] = useState([]); 

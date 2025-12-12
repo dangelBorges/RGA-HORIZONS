@@ -17,12 +17,12 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 // Se asume la existencia del hook
 import { useInventoryReports } from '@/hooks/useReports';
-import { 
-  Search, 
-  Download, 
-  Package, 
-  Truck, 
-  AlertTriangle, 
+import {
+  Search,
+  Download,
+  Package,
+  Truck,
+  AlertTriangle,
   LayoutDashboard,
   Filter
 } from 'lucide-react';
@@ -65,11 +65,11 @@ const ReporteInventario = () => {
 
   const exportarACsv = (datos, nombreArchivo) => {
     if (!datos.length) return;
-    
+
     const encabezados = Object.keys(datos[0]).join(',');
     const filas = datos.map(obj => Object.values(obj).join(','));
     const contenidoCsv = [encabezados, ...filas].join('\n');
-    
+
     const blob = new Blob([contenidoCsv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     if (link.download !== undefined) {
@@ -93,7 +93,7 @@ const ReporteInventario = () => {
         dias: calcularDias(item.stock_kilos, item.consumo_promedio),
         meses: calcularMeses(calcularDias(item.stock_kilos, item.consumo_promedio))
       }))
-      .filter(item => 
+      .filter(item =>
         item.descripcion?.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
         item.codigo?.toLowerCase().includes(terminoBusqueda.toLowerCase())
       );
@@ -102,33 +102,55 @@ const ReporteInventario = () => {
   // 2. Datos de Tránsito Agrupados por OC
   const transitosAgrupados = useMemo(() => {
     const grupos = {};
+
     datosTransito.forEach(item => {
-      // Usar numOc en lugar de oc_number
-      const numOc = item.oc_number;
-      if (!grupos[numOc]) {
-        grupos[numOc] = {
-          proveedor: item.supplier, // Mantener 'supplier' o traducir a 'proveedor' si se usa internamente
-          eta: item.eta,
+      const oc = item.oc_number;
+
+      if (!grupos[oc]) {
+        grupos[oc] = {
+          proveedor: item.origen || "N/A",
+          eta: item.eta || null,
           items: []
         };
       }
-      grupos[numOc].items.push(item);
+
+      grupos[oc].items.push({
+        id: item.id,
+        codigo: item.articulo,
+        descripcion: item.descripcion,
+        cantidad: item.cantidad_kilos,
+        eta: item.eta,
+        origen: item.origen,
+        status: item.status
+      });
     });
-    
-    // Filtrar por búsqueda
+
+    // Ordenamos las OCs por ETA ASC (más próximo arriba)
+    const ordenado = Object.fromEntries(
+      Object.entries(grupos).sort(([, a], [, b]) => {
+        const da = new Date(a.eta);
+        const db = new Date(b.eta);
+        return da - db;
+      })
+    );
+
+    // Filtro por búsqueda
     if (terminoBusqueda) {
-      Object.keys(grupos).forEach(key => {
-        const tieneCoincidencia = grupos[key].items.some(item => 
-          item.descripcion.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
+      Object.keys(ordenado).forEach(key => {
+        const match = ordenado[key].items.some(item =>
           item.codigo.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
+          item.descripcion.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
           key.toLowerCase().includes(terminoBusqueda.toLowerCase())
         );
-        if (!tieneCoincidencia) delete grupos[key];
+
+        if (!match) delete ordenado[key];
       });
     }
-    
-    return grupos;
+
+    return ordenado;
+
   }, [datosTransito, terminoBusqueda]);
+
 
   // 3. Datos Totales (Fusión Bodega + Tránsito)
   const datosTotales = useMemo(() => {
@@ -157,7 +179,7 @@ const ReporteInventario = () => {
           descripcion: item.descripcion,
           stock_bodega: 0,
           stock_transito: parseFloat(item.cantidad_kilos),
-          consumo_promedio: 0 
+          consumo_promedio: 0
         });
       }
     });
@@ -171,7 +193,7 @@ const ReporteInventario = () => {
         dias: dias,
         meses: calcularMeses(dias)
       };
-    }).filter(item => 
+    }).filter(item =>
       item.descripcion?.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
       item.codigo?.toLowerCase().includes(terminoBusqueda.toLowerCase())
     );
@@ -191,10 +213,10 @@ const ReporteInventario = () => {
       {
         label: 'Meses de Stock (Total)',
         data: datosTotales.slice(0, 50).map(i => parseFloat(i.meses)),
-        backgroundColor: datosTotales.slice(0, 50).map(i => 
+        backgroundColor: datosTotales.slice(0, 50).map(i =>
           i.dias < 90 ? 'rgba(239, 68, 68, 0.7)' : 'rgba(16, 185, 129, 0.7)'
         ),
-        borderColor: datosTotales.slice(0, 50).map(i => 
+        borderColor: datosTotales.slice(0, 50).map(i =>
           i.dias < 90 ? 'rgb(239, 68, 68)' : 'rgb(16, 185, 129)'
         ),
         borderWidth: 1,
@@ -233,7 +255,7 @@ const ReporteInventario = () => {
     return (
       <div className="space-y-6 animate-pulse">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1,2,3].map(i => <div key={i} className="h-32 bg-muted/50 rounded-xl" />)}
+          {[1, 2, 3].map(i => <div key={i} className="h-32 bg-muted/50 rounded-xl" />)}
         </div>
         <div className="h-96 bg-muted/30 rounded-lg" />
       </div>
@@ -325,14 +347,14 @@ const ReporteInventario = () => {
                 <TabsTrigger value="transit">Tránsitos por OC</TabsTrigger>
                 <TabsTrigger value="totals">Totales</TabsTrigger>
               </TabsList>
-              
-              <Button 
-                variant="outline" 
+
+              <Button
+                variant="outline"
                 className="hidden md:flex gap-2"
                 onClick={() => {
                   // Usar estados y funciones traducidas
-                  const datosAExportar = pestanaActiva === 'warehouse' ? datosBodegaProcesados : 
-                                         pestanaActiva === 'transit' ? datosTransito : datosTotales;
+                  const datosAExportar = pestanaActiva === 'warehouse' ? datosBodegaProcesados :
+                    pestanaActiva === 'transit' ? datosTransito : datosTotales;
                   exportarACsv(datosAExportar, `inventario_${pestanaActiva}`);
                 }}
               >
@@ -343,7 +365,7 @@ const ReporteInventario = () => {
 
             {/* --- SECCION 1: BODEGA --- */}
             <TabsContent value="warehouse" className="space-y-6">
-              <div className="rounded-md border border-border overflow-x-auto">
+              <div className="rounded-md border border-border overflow-x-auto max-h-[500px] overflow-y-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-muted-foreground font-medium">
                     <tr>
@@ -396,8 +418,11 @@ const ReporteInventario = () => {
                         </div>
                         <div className="flex items-center gap-6 text-sm">
                           <div className="flex flex-col md:items-end">
-                            <span className="text-muted-foreground text-xs uppercase">ETA Estimado</span>
-                            <span className="font-medium">{new Date(grupo.eta).toLocaleDateString()}</span>
+                            <span className="text-muted-foreground text-xs uppercase">ETA Global</span>
+                            <span className="font-medium">
+                              {grupo.eta ? new Date(grupo.eta).toLocaleDateString() : "—"}
+                            </span>
+
                           </div>
                           <div className="flex flex-col md:items-end">
                             <span className="text-muted-foreground text-xs uppercase">Items</span>
@@ -418,19 +443,32 @@ const ReporteInventario = () => {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border/50 bg-card/50">
-                            {grupo.items.map((item) => (
-                              <tr key={item.id} className="hover:bg-muted/20">
-                                <td className="py-2 px-4">{item.codigo}</td>
+                            {grupo.items.map((item, i) => (
+                              <tr key={item.id || i} className="hover:bg-muted/20">
+                                <td className="py-2 px-4 font-medium">{item.codigo}</td>
                                 <td className="py-2 px-4">{item.descripcion}</td>
-                                <td className="py-2 px-4 text-right">{parseFloat(item.cantidad_kilos).toLocaleString()}</td>
-                                <td className="py-2 px-4 text-right">
-                                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
+
+                                <td className="py-2 px-4 text-right font-bold">
+                                  {parseFloat(item.cantidad).toLocaleString()} kg
+                                </td>
+
+                                <td className="py-2 px-4 text-center">
+                                  <span className="text-xs px-2 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">
                                     {item.status}
                                   </span>
+                                </td>
+
+                                <td className="py-2 px-4 text-center text-sm text-muted-foreground">
+                                  {item.origen}
+                                </td>
+
+                                <td className="py-2 px-4 text-center text-sm">
+                                  {item.eta ? new Date(item.eta).toLocaleDateString() : "—"}
                                 </td>
                               </tr>
                             ))}
                           </tbody>
+
                         </table>
                       </div>
                     </AccordionContent>
@@ -446,7 +484,7 @@ const ReporteInventario = () => {
 
             {/* --- SECCION 3: TOTALES --- */}
             <TabsContent value="totals" className="space-y-6">
-              <div className="rounded-md border border-border overflow-x-auto mb-8">
+              <div className="rounded-md border border-border overflow-x-auto max-h-[500px] overflow-y-auto mb-8">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-muted-foreground font-medium">
                     <tr>
@@ -476,7 +514,7 @@ const ReporteInventario = () => {
                   </tbody>
                 </table>
               </div>
-              
+
               <div className="h-[400px] w-full bg-card p-4 rounded-xl border border-border">
                 {/* Usar datosGrafico y opcionesGrafico traducidos */}
                 <Bar data={datosGrafico} options={opcionesGrafico} />
