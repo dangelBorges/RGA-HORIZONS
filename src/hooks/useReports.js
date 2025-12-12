@@ -55,7 +55,15 @@ export const useInventoryReports = () => {
 
         if (warehouseError) throw warehouseError;
 
-        // === TRANSIT (NUEVA TABLA COMPLEJA) ===
+        // 🔥 NORMALIZAR NOMBRES AQUÍ (sin romper nada)
+        const warehouseParsed = (warehouse || []).map(row => ({
+          ...row,
+          codigo: row.articulo,                     // A
+          stock_kilos: parseFloat(row.cantidad),    // B
+          consumo_promedio: parseFloat(row.consumo_3m), // C
+        }));
+
+        // === TRANSIT === (sin cambios)
         const { data: transitRaw, error: transitError } =
           await supabase
             .from("reports_transit")
@@ -63,7 +71,6 @@ export const useInventoryReports = () => {
 
         if (transitError) throw transitError;
 
-        // Transformar filas → múltiples OCs
         const expandTransitRows = () => {
           const all = [];
 
@@ -94,8 +101,9 @@ export const useInventoryReports = () => {
 
         const transitParsed = expandTransitRows();
 
-        setWarehouseData(warehouse || []);
-        setTransitData(transitParsed || []);
+        // Guardar datos ya normalizados
+        setWarehouseData(warehouseParsed);
+        setTransitData(transitParsed);
 
       } catch (error) {
         console.error("Error fetching inventory reports:", error);
@@ -114,6 +122,8 @@ export const useInventoryReports = () => {
 
   return { warehouseData, transitData, loading };
 };
+
+
 
 
 
