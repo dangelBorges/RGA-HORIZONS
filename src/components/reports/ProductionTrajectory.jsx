@@ -163,7 +163,7 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
                 <Filter className="w-3 h-3" /> Año
               </label>
               <select
-                className="w-full bg-caRD border border-slate-700 text-blue-700 text-sm rounded-md p-2.5 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                className="w-full bg-card border border-slate-700 text-blue-700 text-sm rounded-md p-2.5 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
                 value={selectedYear}
                 onChange={(e) => {
                   setSelectedYear(e.target.value);

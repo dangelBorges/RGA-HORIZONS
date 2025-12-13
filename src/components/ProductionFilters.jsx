@@ -34,7 +34,7 @@ const ProductionFilters = ({ filters, onFilterChange, availableYears = [] }) => 
       transition={{ duration: 0.3 }}
       className="mb-6"
     >
-      <Card className="h-full bg-card border-border shadow-lg border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.1)] backdrop-blur-sm">
+      <Card className="h-full bg-card border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.1)] backdrop-blur-sm">
         <CardContent className="p-4">
           <div className="flex flex-col lg:flex-row gap-6 items-end">
             
