@@ -289,14 +289,14 @@ const ProductionReport = () => {
           <div className="lg:col-span-3 flex flex-col gap-6">
             <div className="flex-1 min-h-[180px]">
               {dynamicKPIs.map(kpi => (
-                <Card key={kpi.id} className="h-full bg-slate-950 border-cyan-500/20 shadow-lg relative overflow-hidden group">
+                <Card key={kpi.id} className="h-full bg-card border-cyan-500/20 shadow-lg relative overflow-hidden group">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
                   <CardHeader className="pb-2">
                     <CardTitle className="text-cyan-400 font-bold uppercase tracking-wider text-sm">{kpi.label}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="mt-2">
-                      <span className="text-4xl lg:text-5xl font-extrabold text-white tracking-tight">
+                      <span className="text-4xl lg:text-5xl font-extrabold text-blue-700 tracking-tight">
                         {parseFloat(kpi.value).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                       </span>
                       <div className="text-xl font-bold text-slate-500 mt-1">{kpi.unit?.toUpperCase()}</div>
@@ -308,7 +308,7 @@ const ProductionReport = () => {
             </div>
 
             <div className="flex-1 min-h-[250px]">
-              <Card className="h-full bg-slate-950 border-purple-500/20 flex flex-col">
+              <Card className="h-full bg-card border-border shadow-lg border-purple-500/20 flex flex-col">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2">
                     <History className="w-4 h-4" /> Últimos 3 Meses
@@ -343,7 +343,7 @@ const ProductionReport = () => {
 
           {/* CENTER: Production by Plant */}
           <div className="lg:col-span-6 max-h-[500px] h-auto">
-            <Card className="h-full bg-slate-950 border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)] flex flex-col">
+            <Card className="h-full bg-card border-border shadow-lg border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)] flex flex-col">
               <CardHeader className="pb-2">
                 <CardTitle className="text-[#06b6d4] text-lg font-bold tracking-wide">Producción por Planta</CardTitle>
                 <CardDescription className="text-slate-400 text-xs">Total completado agrupado por planta del holding</CardDescription>
@@ -368,7 +368,7 @@ const ProductionReport = () => {
 
           {/* RIGHT: Top Clientes (vertical narrow) */}
           <div className="lg:col-span-3 max-h-[500px] h-auto">
-            <Card className="h-full bg-slate-900/20 border-border flex flex-col">
+            <Card className="h-full bg-card border-border shadow-lg">
               <CardHeader>
                 <CardTitle className="text-lg">Top Clientes Consolidados</CardTitle>
                 <CardDescription>Ranking por volumen</CardDescription>
@@ -477,7 +477,7 @@ const ProductionReport = () => {
           </Card>
 
           {/* RIGHT: Executive RRHH summary */}
-          <Card className="bg-[#0f172a] border-primary/20 overflow-hidden relative">
+          <Card className="bg-card border-primary/20 overflow-hidden relative">
             <div className="absolute top-0 right-0 p-3 opacity-20">
               <FileText className="w-24 h-24 text-primary" />
             </div>

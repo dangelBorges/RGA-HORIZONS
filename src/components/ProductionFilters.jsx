@@ -34,7 +34,7 @@ const ProductionFilters = ({ filters, onFilterChange, availableYears = [] }) => 
       transition={{ duration: 0.3 }}
       className="mb-6"
     >
-      <Card className="bg-[#0f172a]/80 border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.1)] backdrop-blur-sm">
+      <Card className="h-full bg-card border-border shadow-lg border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.1)] backdrop-blur-sm">
         <CardContent className="p-4">
           <div className="flex flex-col lg:flex-row gap-6 items-end">
             
@@ -48,7 +48,7 @@ const ProductionFilters = ({ filters, onFilterChange, availableYears = [] }) => 
             <div className="w-full lg:w-40 space-y-2">
               <Label className="text-xs text-slate-400">Año</Label>
               <Select value={filters.year} onValueChange={(val) => handleChange('year', val)}>
-                <SelectTrigger className="bg-slate-900 border-slate-700 text-slate-200 h-9">
+                <SelectTrigger className="bg-card border-slate-700 text-blue-700 h-9">
                   <SelectValue placeholder="Año" />
                 </SelectTrigger>
                 <SelectContent>
@@ -62,7 +62,7 @@ const ProductionFilters = ({ filters, onFilterChange, availableYears = [] }) => 
             <div className="w-full lg:w-48 space-y-2">
               <Label className="text-xs text-slate-400">Mes</Label>
               <Select value={filters.month} onValueChange={(val) => handleChange('month', val)}>
-                <SelectTrigger className="bg-slate-900 border-slate-700 text-slate-200 h-9">
+                <SelectTrigger className="bg-card border-slate-700 text-blue-700 h-9">
                   <SelectValue placeholder="Mes" />
                 </SelectTrigger>
                 <SelectContent>
