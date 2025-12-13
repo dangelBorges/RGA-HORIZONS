@@ -154,51 +154,62 @@ const ReporteInventario = () => {
 
   // 3. Datos Totales (Fusión Bodega + Tránsito)
   const datosTotales = useMemo(() => {
-    const mapaTotales = new Map();
+  const mapa = new Map();
 
-    // Añadir ítems de bodega
-    datosBodegaProcesados.forEach(item => {
-      mapaTotales.set(item.codigo, {
+  // 1️⃣ Base: BODEGA
+  datosBodega.forEach(item => {
+    mapa.set(item.codigo, {
+      codigo: item.codigo,
+      descripcion: item.descripcion,
+      consumo_promedio: Number(item.consumo_promedio) || 0,
+      stock_bodega: Number(item.stock_kilos) || 0,
+      stock_transito: 0
+    });
+  });
+
+  // 2️⃣ Sumar TODO el tránsito por MP
+  datosTransito.forEach(item => {
+    const codigo = item.articulo;
+    const cantidad = Number(item.cantidad_kilos) || 0;
+
+    if (mapa.has(codigo)) {
+      mapa.get(codigo).stock_transito += cantidad;
+    } else {
+      // MP que solo existe en tránsito
+      mapa.set(codigo, {
+        codigo,
+        descripcion: item.descripcion,
+        consumo_promedio: 0,
+        stock_bodega: 0,
+        stock_transito: cantidad
+      });
+    }
+  });
+
+  // 3️⃣ Cálculos finales
+  return Array.from(mapa.values())
+    .map(item => {
+      const stock_total = item.stock_bodega + item.stock_transito;
+
+      const dias =
+        item.consumo_promedio > 0
+          ? Math.round(stock_total / (item.consumo_promedio / 30))
+          : 999;
+
+      return {
         codigo: item.codigo,
         descripcion: item.descripcion,
-        stock_bodega: parseFloat(item.stock_kilos),
-        stock_transito: 0,
-        consumo_promedio: parseFloat(item.consumo_promedio)
-      });
-    });
-
-    // Añadir ítems en tránsito
-    datosTransito.forEach(item => {
-      if (mapaTotales.has(item.codigo)) {
-        const actual = mapaTotales.get(item.codigo);
-        actual.stock_transito += parseFloat(item.cantidad_kilos);
-      } else {
-        // Ítem en tránsito pero no en bodega (posible, se asume 0 de consumo)
-        mapaTotales.set(item.codigo, {
-          codigo: item.codigo,
-          descripcion: item.descripcion,
-          stock_bodega: 0,
-          stock_transito: parseFloat(item.cantidad_kilos),
-          consumo_promedio: 0
-        });
-      }
-    });
-
-    return Array.from(mapaTotales.values()).map(item => {
-      const stockTotal = item.stock_bodega + item.stock_transito;
-      const dias = calcularDias(stockTotal, item.consumo_promedio);
-      return {
-        ...item,
-        total_stock: stockTotal,
-        dias: dias,
-        meses: calcularMeses(dias)
+        stock_total,
+        dias,
+        meses: (dias / 30).toFixed(1)
       };
-    }).filter(item =>
-      item.descripcion?.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
-      item.codigo?.toLowerCase().includes(terminoBusqueda.toLowerCase())
+    })
+    .filter(item =>
+      item.codigo?.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
+      item.descripcion?.toLowerCase().includes(terminoBusqueda.toLowerCase())
     );
+}, [datosBodega, datosTransito, terminoBusqueda]);
 
-  }, [datosBodegaProcesados, datosTransito, terminoBusqueda]);
 
 
   // --- KPIs (Indicadores Clave de Rendimiento) ---
@@ -490,11 +501,9 @@ const ReporteInventario = () => {
                     <tr>
                       <th className="h-10 px-4 text-left align-middle">Código</th>
                       <th className="h-10 px-4 text-left align-middle">Descripción</th>
-                      <th className="h-10 px-4 text-right align-middle">Stock Bodega</th>
-                      <th className="h-10 px-4 text-right align-middle">Stock Tránsito</th>
                       <th className="h-10 px-4 text-right align-middle">Stock Total</th>
-                      <th className="h-10 px-4 text-center align-middle">Días Total</th>
-                      <th className="h-10 px-4 text-center align-middle">Meses Total</th>
+                      <th className="h-10 px-4 text-right align-middle">Dias</th>
+                      <th className="h-10 px-4 text-right align-middle">Meses</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
@@ -502,9 +511,7 @@ const ReporteInventario = () => {
                       <tr key={item.codigo} className="hover:bg-muted/30 transition-colors">
                         <td className="p-4 font-medium">{item.codigo}</td>
                         <td className="p-4">{item.descripcion}</td>
-                        <td className="p-4 text-right">{item.stock_bodega.toLocaleString()}</td>
-                        <td className="p-4 text-right text-blue-500">{item.stock_transito.toLocaleString()}</td>
-                        <td className="p-4 text-right font-bold">{item.total_stock.toLocaleString()}</td>
+                        <td className="p-4 text-right">{item.stock_total.toLocaleString()}</td>
                         <td className={`p-4 text-center font-bold ${obtenerColorEstado(item.dias)}`}>
                           {item.dias}
                         </td>
