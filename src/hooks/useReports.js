@@ -152,11 +152,12 @@ export const useInventoryReports = () => {
 
 
 export const useProductionReports = () => {
-  const [productionRecords, setProductionRecords] = useState([]); 
+  const [productionRecords, setProductionRecords] = useState([]);
   const [kpis, setKpis] = useState([]);
   const [attendanceStats, setAttendanceStats] = useState([]);
   const [vacationList, setVacationList] = useState([]);
   const [plantsMapData, setPlantsMapData] = useState([]);
+  const [topProducts, setTopProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -166,7 +167,7 @@ export const useProductionReports = () => {
         // --- PRODUCTION RECORDS FETCHING ---
         // Implementation: Recursive pagination to bypass Supabase default row limit (usually 1000).
         // We fetch in chunks of 1000 until no more data is returned.
-        
+
         let allRecords = [];
         let hasMore = true;
         let page = 0;
@@ -182,7 +183,7 @@ export const useProductionReports = () => {
 
           if (data && data.length > 0) {
             allRecords = allRecords.concat(data);
-            
+
             // If the received data is smaller than the batch size, we've reached the end.
             if (data.length < BATCH_SIZE) {
               hasMore = false;
@@ -193,7 +194,7 @@ export const useProductionReports = () => {
             hasMore = false;
           }
         }
-        
+
         setProductionRecords(allRecords);
 
 
@@ -221,17 +222,33 @@ export const useProductionReports = () => {
       } finally {
         setLoading(false);
       }
+
+      // --- TOP PRODUCTS (VIEW) ---
+      const { data: topProductsData, error: topProductsError } =
+        await supabase
+          .from('vw_prod_top_products')
+          .select('*');
+
+      if (topProductsError) {
+        console.error('Error fetching top products:', topProductsError);
+      } else {
+        setTopProducts(topProductsData || []);
+      }
+
     };
+
+
 
     fetchData();
   }, [toast]);
 
-  return { 
-    productionRecords, 
-    kpis, 
-    attendanceStats, 
-    vacationList, 
+  return {
+    productionRecords,
+    kpis,
+    attendanceStats,
+    vacationList,
     plantsMapData,
-    loading 
+    topProducts,
+    loading
   };
 };

@@ -49,6 +49,7 @@ const ProductionReport = () => {
     productionRecords = [],
     kpis: initialKpis = [],
     plantsMapData,
+    topProducts = [],
     loading
   } = useProductionReports();
 
@@ -418,9 +419,79 @@ const ProductionReport = () => {
 
         {/* ================= NUEVAS SECCIONES ================= */}
 
-        <section className="h-[400px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
-          <span className="text-xl font-bold">Productos más demandados</span>
+        {/* ================= PRODUCTOS MÁS DEMANDADOS ================= */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Factory className="w-5 h-5 text-indigo-500" />
+            <h3 className="text-xl font-bold tracking-tight">
+              Productos más demandados
+            </h3>
+          </div>
+
+          <Card className="bg-card border-border shadow-lg">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm uppercase tracking-wider text-indigo-400">
+                Top productos por volumen producido
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent className="h-[380px]">
+              {topProducts.length > 0 ? (
+                <ResponsiveContainer width="100%" height={360}>
+                  <BarChart
+                    data={topProducts}
+                    layout="vertical"
+                    margin={{ top: 10, right: 40, left: 40, bottom: 10 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} opacity={0.2} />
+
+                    <XAxis
+                      type="number"
+                      tick={{ fill: '#475569', fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+
+                    <YAxis
+                      type="category"
+                      dataKey="producto"
+                      width={240}
+                      tick={{
+                        fill: '#0f172a',
+                        fontSize: 12,
+                        fontWeight: 500
+                      }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+
+                    <Tooltip
+                      formatter={(v) => [`${Number(v).toLocaleString()} kg`, 'Volumen']}
+                      contentStyle={{
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px'
+                      }}
+                    />
+
+                    <Bar
+                      dataKey="total_kg"
+                      fill="#6366f1"
+                      radius={[0, 6, 6, 0]}
+                      barSize={28}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  Sin datos de productos
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </section>
+
 
         <section className="h-[480px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
           <span className="text-xl font-bold">Producción histórica</span>
