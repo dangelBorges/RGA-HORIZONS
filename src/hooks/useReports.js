@@ -40,6 +40,7 @@ export const useAdminReports = () => {
 export const useInventoryReports = () => {
   const [warehouseData, setWarehouseData] = useState([]);
   const [transitData, setTransitData] = useState([]);
+  const [inventoryTotal, setInventoryTotal] = useState([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -105,6 +106,29 @@ export const useInventoryReports = () => {
         setWarehouseData(warehouseParsed);
         setTransitData(transitParsed);
 
+        // === INVENTORY TOTAL (from reports_inventory_total) ===
+        try {
+          const { data: invTotalRaw, error: invTotalError } = await supabase
+            .from('reports_inventory_total')
+            .select('*');
+
+          if (invTotalError) throw invTotalError;
+
+          // Normalize fields to expected shape: { mp, descripcion, total }
+          const invTotalParsed = (invTotalRaw || []).map(row => {
+            const mp = row.mp || row.articulo || row.codigo || '';
+            const descripcion = row.descripcion || row.description || row.nombre || '';
+            const total = Number(row.total ?? row.total_stock ?? row.total_kilos ?? row.cantidad_total ?? row.cantidad ?? 0) || 0;
+            return { mp, descripcion, total, raw: row };
+          });
+
+          setInventoryTotal(invTotalParsed);
+        } catch (err) {
+          console.error('Error fetching reports_inventory_total:', err);
+          // don't throw, continue with other data
+          setInventoryTotal([]);
+        }
+
       } catch (error) {
         console.error("Error fetching inventory reports:", error);
         toast({
@@ -120,7 +144,7 @@ export const useInventoryReports = () => {
     fetchData();
   }, [toast]);
 
-  return { warehouseData, transitData, loading };
+  return { warehouseData, transitData, inventoryTotal, loading };
 };
 
 
