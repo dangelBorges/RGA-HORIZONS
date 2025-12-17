@@ -415,11 +415,11 @@ const ProductionReport = () => {
 
 
 
+        
 
+        {/* ================= NUEVAS SECCIONES ================= 
 
-        {/* ================= NUEVAS SECCIONES ================= */}
-
-        {/* ================= PRODUCTOS MÁS DEMANDADOS ================= */}
+        {/* ================= PRODUCTOS MÁS DEMANDADOS ================= 
         <section className="space-y-4">
           <div className="flex items-center gap-2">
             <Factory className="w-5 h-5 text-indigo-500" />
@@ -522,7 +522,7 @@ const ProductionReport = () => {
         <section className="h-[480px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
           <span className="text-xl font-bold">Comparativo interanual</span>
         </section>
-
+*/}
 
         {/* SECTION: ASISTENCIA / RRHH (layout basado en imagen) */}
         <section className="space-y-6 pt-6 border-t border-border/50">
