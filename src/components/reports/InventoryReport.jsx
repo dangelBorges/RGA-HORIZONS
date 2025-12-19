@@ -17,12 +17,12 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 // Se asume la existencia del hook
 import { useInventoryReports } from '@/hooks/useReports';
-import { 
-  Search, 
-  Download, 
-  Package, 
-  Truck, 
-  AlertTriangle, 
+import {
+  Search,
+  Download,
+  Package,
+  Truck,
+  AlertTriangle,
   LayoutDashboard,
   Filter
 } from 'lucide-react';
@@ -40,7 +40,7 @@ ChartJS.register(
 
 const ReporteInventario = () => {
   // Traducir nombres de variables de datos
-  const { warehouseData: datosBodega, transitData: datosTransito, loading } = useInventoryReports();
+  const { warehouseData: datosBodega, transitData: datosTransito, inventoryTotal, loading } = useInventoryReports();
   // Traducir estados
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
   const [pestanaActiva, setPestanaActiva] = useState('warehouse');
@@ -57,6 +57,13 @@ const ReporteInventario = () => {
     return (dias / 30).toFixed(1);
   };
 
+  // Formateo seguro de números para evitar errores sobre valores undefined/null
+  const formatNumber = (v) => {
+    const n = Number(v ?? 0);
+    if (Number.isNaN(n)) return '0';
+    return n.toLocaleString();
+  };
+
   const obtenerColorEstado = (dias) => {
     if (dias < 45) return 'text-red-500 font-bold';
     if (dias < 90) return 'text-amber-500 font-bold';
@@ -65,11 +72,11 @@ const ReporteInventario = () => {
 
   const exportarACsv = (datos, nombreArchivo) => {
     if (!datos.length) return;
-    
+
     const encabezados = Object.keys(datos[0]).join(',');
     const filas = datos.map(obj => Object.values(obj).join(','));
     const contenidoCsv = [encabezados, ...filas].join('\n');
-    
+
     const blob = new Blob([contenidoCsv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     if (link.download !== undefined) {
@@ -93,7 +100,7 @@ const ReporteInventario = () => {
         dias: calcularDias(item.stock_kilos, item.consumo_promedio),
         meses: calcularMeses(calcularDias(item.stock_kilos, item.consumo_promedio))
       }))
-      .filter(item => 
+      .filter(item =>
         item.descripcion?.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
         item.codigo?.toLowerCase().includes(terminoBusqueda.toLowerCase())
       );
@@ -102,81 +109,137 @@ const ReporteInventario = () => {
   // 2. Datos de Tránsito Agrupados por OC
   const transitosAgrupados = useMemo(() => {
     const grupos = {};
+
     datosTransito.forEach(item => {
-      // Usar numOc en lugar de oc_number
-      const numOc = item.oc_number;
-      if (!grupos[numOc]) {
-        grupos[numOc] = {
-          proveedor: item.supplier, // Mantener 'supplier' o traducir a 'proveedor' si se usa internamente
-          eta: item.eta,
+      const oc = item.oc_number;
+
+      if (!grupos[oc]) {
+        grupos[oc] = {
+          proveedor: item.origen || "N/A",
+          eta: item.eta || null,
           items: []
         };
       }
-      grupos[numOc].items.push(item);
+
+      grupos[oc].items.push({
+        id: item.id,
+        codigo: item.articulo,
+        descripcion: item.descripcion,
+        cantidad: item.cantidad_kilos,
+        eta: item.eta,
+        origen: item.origen,
+        status: item.status
+      });
     });
-    
-    // Filtrar por búsqueda
+
+    // Ordenamos las OCs por ETA ASC (más próximo arriba)
+    const ordenado = Object.fromEntries(
+      Object.entries(grupos).sort(([, a], [, b]) => {
+        const da = new Date(a.eta);
+        const db = new Date(b.eta);
+        return da - db;
+      })
+    );
+
+    // Filtro por búsqueda
     if (terminoBusqueda) {
-      Object.keys(grupos).forEach(key => {
-        const tieneCoincidencia = grupos[key].items.some(item => 
-          item.descripcion.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
+      Object.keys(ordenado).forEach(key => {
+        const match = ordenado[key].items.some(item =>
           item.codigo.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
+          item.descripcion.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
           key.toLowerCase().includes(terminoBusqueda.toLowerCase())
         );
-        if (!tieneCoincidencia) delete grupos[key];
+
+        if (!match) delete ordenado[key];
       });
     }
-    
-    return grupos;
+
+    return ordenado;
+
   }, [datosTransito, terminoBusqueda]);
 
-  // 3. Datos Totales (Fusión Bodega + Tránsito)
-  const datosTotales = useMemo(() => {
-    const mapaTotales = new Map();
 
-    // Añadir ítems de bodega
-    datosBodegaProcesados.forEach(item => {
-      mapaTotales.set(item.codigo, {
+  // 3. Datos Totales (preferir tabla `reports_inventory_total` si existe, sino fusionar localmente)
+  const datosTotales = useMemo(() => {
+    // Si la tabla de totales desde el backend está disponible, úsala como fuente
+    if (inventoryTotal && inventoryTotal.length > 0) {
+      return inventoryTotal
+        .map(item => {
+          const codigo = item.mp || item.codigo || item.mp || '';
+          const descripcion = item.descripcion || '';
+          const total_stock = Number(item.total ?? item.total_stock ?? item.stock_total) || 0;
+
+          // buscar consumo promedio en datosBodega (coincidir por `codigo`)
+          const consumo = datosBodega.find(b => b.codigo === codigo || b.articulo === codigo)?.consumo_promedio || 0;
+
+          const dias = consumo > 0 ? Math.round(total_stock / (consumo / 30)) : 999;
+
+          return {
+            codigo,
+            descripcion,
+            stock_total: total_stock,
+            dias,
+            meses: (dias / 30).toFixed(1)
+          };
+        })
+        .filter(item =>
+          item.codigo?.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
+          item.descripcion?.toLowerCase().includes(terminoBusqueda.toLowerCase())
+        );
+    }
+
+    // Fallback: calcular a partir de datosBodega + datosTransito (local)
+    const mapa = new Map();
+
+    datosBodega.forEach(item => {
+      mapa.set(item.codigo, {
         codigo: item.codigo,
         descripcion: item.descripcion,
-        stock_bodega: parseFloat(item.stock_kilos),
-        stock_transito: 0,
-        consumo_promedio: parseFloat(item.consumo_promedio)
+        consumo_promedio: Number(item.consumo_promedio) || 0,
+        stock_bodega: Number(item.stock_kilos) || 0,
+        stock_transito: 0
       });
     });
 
-    // Añadir ítems en tránsito
     datosTransito.forEach(item => {
-      if (mapaTotales.has(item.codigo)) {
-        const actual = mapaTotales.get(item.codigo);
-        actual.stock_transito += parseFloat(item.cantidad_kilos);
+      const codigo = item.articulo;
+      const cantidad = Number(item.cantidad_kilos) || 0;
+
+      if (mapa.has(codigo)) {
+        mapa.get(codigo).stock_transito += cantidad;
       } else {
-        // Ítem en tránsito pero no en bodega (posible, se asume 0 de consumo)
-        mapaTotales.set(item.codigo, {
-          codigo: item.codigo,
+        mapa.set(codigo, {
+          codigo,
           descripcion: item.descripcion,
+          consumo_promedio: 0,
           stock_bodega: 0,
-          stock_transito: parseFloat(item.cantidad_kilos),
-          consumo_promedio: 0 
+          stock_transito: cantidad
         });
       }
     });
 
-    return Array.from(mapaTotales.values()).map(item => {
-      const stockTotal = item.stock_bodega + item.stock_transito;
-      const dias = calcularDias(stockTotal, item.consumo_promedio);
-      return {
-        ...item,
-        total_stock: stockTotal,
-        dias: dias,
-        meses: calcularMeses(dias)
-      };
-    }).filter(item => 
-      item.descripcion?.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
-      item.codigo?.toLowerCase().includes(terminoBusqueda.toLowerCase())
-    );
+    return Array.from(mapa.values())
+      .map(item => {
+        const stock_total = item.stock_bodega + item.stock_transito;
 
-  }, [datosBodegaProcesados, datosTransito, terminoBusqueda]);
+        const dias = item.consumo_promedio > 0
+          ? Math.round(stock_total / (item.consumo_promedio / 30))
+          : 999;
+
+        return {
+          codigo: item.codigo,
+          descripcion: item.descripcion,
+          stock_total,
+          dias,
+          meses: (dias / 30).toFixed(1)
+        };
+      })
+      .filter(item =>
+        item.codigo?.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
+        item.descripcion?.toLowerCase().includes(terminoBusqueda.toLowerCase())
+      );
+  }, [inventoryTotal, datosBodega, datosTransito, terminoBusqueda]);
+
 
 
   // --- KPIs (Indicadores Clave de Rendimiento) ---
@@ -191,10 +254,10 @@ const ReporteInventario = () => {
       {
         label: 'Meses de Stock (Total)',
         data: datosTotales.slice(0, 50).map(i => parseFloat(i.meses)),
-        backgroundColor: datosTotales.slice(0, 50).map(i => 
+        backgroundColor: datosTotales.slice(0, 50).map(i =>
           i.dias < 90 ? 'rgba(239, 68, 68, 0.7)' : 'rgba(16, 185, 129, 0.7)'
         ),
-        borderColor: datosTotales.slice(0, 50).map(i => 
+        borderColor: datosTotales.slice(0, 50).map(i =>
           i.dias < 90 ? 'rgb(239, 68, 68)' : 'rgb(16, 185, 129)'
         ),
         borderWidth: 1,
@@ -233,7 +296,7 @@ const ReporteInventario = () => {
     return (
       <div className="space-y-6 animate-pulse">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1,2,3].map(i => <div key={i} className="h-32 bg-muted/50 rounded-xl" />)}
+          {[1, 2, 3].map(i => <div key={i} className="h-32 bg-muted/50 rounded-xl" />)}
         </div>
         <div className="h-96 bg-muted/30 rounded-lg" />
       </div>
@@ -282,7 +345,7 @@ const ReporteInventario = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total en Tránsito (Kg)</p>
-                  <h3 className="text-3xl font-bold mt-2 text-blue-500">{totalKilosTransito.toLocaleString()}</h3>
+                  <h3 className="text-3xl font-bold mt-2 text-blue-500">{formatNumber(totalKilosTransito)}</h3>
                 </div>
                 <div className="p-3 bg-blue-500/10 rounded-lg">
                   <Truck className="w-5 h-5 text-blue-500" />
@@ -325,14 +388,14 @@ const ReporteInventario = () => {
                 <TabsTrigger value="transit">Tránsitos por OC</TabsTrigger>
                 <TabsTrigger value="totals">Totales</TabsTrigger>
               </TabsList>
-              
-              <Button 
-                variant="outline" 
+
+              <Button
+                variant="outline"
                 className="hidden md:flex gap-2"
                 onClick={() => {
                   // Usar estados y funciones traducidas
-                  const datosAExportar = pestanaActiva === 'warehouse' ? datosBodegaProcesados : 
-                                         pestanaActiva === 'transit' ? datosTransito : datosTotales;
+                  const datosAExportar = pestanaActiva === 'warehouse' ? datosBodegaProcesados :
+                    pestanaActiva === 'transit' ? datosTransito : datosTotales;
                   exportarACsv(datosAExportar, `inventario_${pestanaActiva}`);
                 }}
               >
@@ -343,7 +406,7 @@ const ReporteInventario = () => {
 
             {/* --- SECCION 1: BODEGA --- */}
             <TabsContent value="warehouse" className="space-y-6">
-              <div className="rounded-md border border-border overflow-x-auto">
+              <div className="rounded-md border border-border overflow-x-auto max-h-[500px] overflow-y-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-muted-foreground font-medium">
                     <tr>
@@ -360,8 +423,8 @@ const ReporteInventario = () => {
                       <tr key={item.id} className="hover:bg-muted/30 transition-colors">
                         <td className="p-4 font-medium">{item.codigo}</td>
                         <td className="p-4">{item.descripcion}</td>
-                        <td className="p-4 text-right">{parseFloat(item.stock_kilos).toLocaleString()}</td>
-                        <td className="p-4 text-right">{parseFloat(item.consumo_promedio).toLocaleString()}</td>
+                        <td className="p-4 text-right">{formatNumber(item.stock_kilos)}</td>
+                        <td className="p-4 text-right">{formatNumber(item.consumo_promedio)}</td>
                         <td className={`p-4 text-center font-bold ${obtenerColorEstado(item.dias)}`}>
                           {item.dias}
                         </td>
@@ -396,8 +459,11 @@ const ReporteInventario = () => {
                         </div>
                         <div className="flex items-center gap-6 text-sm">
                           <div className="flex flex-col md:items-end">
-                            <span className="text-muted-foreground text-xs uppercase">ETA Estimado</span>
-                            <span className="font-medium">{new Date(grupo.eta).toLocaleDateString()}</span>
+                            <span className="text-muted-foreground text-xs uppercase">ETA Global</span>
+                            <span className="font-medium">
+                              {grupo.eta ? new Date(grupo.eta).toLocaleDateString() : "—"}
+                            </span>
+
                           </div>
                           <div className="flex flex-col md:items-end">
                             <span className="text-muted-foreground text-xs uppercase">Items</span>
@@ -418,19 +484,32 @@ const ReporteInventario = () => {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border/50 bg-card/50">
-                            {grupo.items.map((item) => (
-                              <tr key={item.id} className="hover:bg-muted/20">
-                                <td className="py-2 px-4">{item.codigo}</td>
+                            {grupo.items.map((item, i) => (
+                              <tr key={item.id || i} className="hover:bg-muted/20">
+                                <td className="py-2 px-4 font-medium">{item.codigo}</td>
                                 <td className="py-2 px-4">{item.descripcion}</td>
-                                <td className="py-2 px-4 text-right">{parseFloat(item.cantidad_kilos).toLocaleString()}</td>
-                                <td className="py-2 px-4 text-right">
-                                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
+
+                                <td className="py-2 px-4 text-right font-bold">
+                                  {formatNumber(item.cantidad)} kg
+                                </td>
+
+                                <td className="py-2 px-4 text-center">
+                                  <span className="text-xs px-2 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">
                                     {item.status}
                                   </span>
+                                </td>
+
+                                <td className="py-2 px-4 text-center text-sm text-muted-foreground">
+                                  {item.origen}
+                                </td>
+
+                                <td className="py-2 px-4 text-center text-sm">
+                                  {item.eta ? new Date(item.eta).toLocaleDateString() : "—"}
                                 </td>
                               </tr>
                             ))}
                           </tbody>
+
                         </table>
                       </div>
                     </AccordionContent>
@@ -446,17 +525,15 @@ const ReporteInventario = () => {
 
             {/* --- SECCION 3: TOTALES --- */}
             <TabsContent value="totals" className="space-y-6">
-              <div className="rounded-md border border-border overflow-x-auto mb-8">
+              <div className="rounded-md border border-border overflow-x-auto max-h-[500px] overflow-y-auto mb-8">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-muted-foreground font-medium">
                     <tr>
                       <th className="h-10 px-4 text-left align-middle">Código</th>
                       <th className="h-10 px-4 text-left align-middle">Descripción</th>
-                      <th className="h-10 px-4 text-right align-middle">Stock Bodega</th>
-                      <th className="h-10 px-4 text-right align-middle">Stock Tránsito</th>
                       <th className="h-10 px-4 text-right align-middle">Stock Total</th>
-                      <th className="h-10 px-4 text-center align-middle">Días Total</th>
-                      <th className="h-10 px-4 text-center align-middle">Meses Total</th>
+                      <th className="h-10 px-4 text-right align-middle">Dias</th>
+                      <th className="h-10 px-4 text-right align-middle">Meses</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
@@ -464,9 +541,7 @@ const ReporteInventario = () => {
                       <tr key={item.codigo} className="hover:bg-muted/30 transition-colors">
                         <td className="p-4 font-medium">{item.codigo}</td>
                         <td className="p-4">{item.descripcion}</td>
-                        <td className="p-4 text-right">{item.stock_bodega.toLocaleString()}</td>
-                        <td className="p-4 text-right text-blue-500">{item.stock_transito.toLocaleString()}</td>
-                        <td className="p-4 text-right font-bold">{item.total_stock.toLocaleString()}</td>
+                        <td className="p-4 text-right">{formatNumber(item.stock_total)}</td>
                         <td className={`p-4 text-center font-bold ${obtenerColorEstado(item.dias)}`}>
                           {item.dias}
                         </td>
@@ -476,7 +551,7 @@ const ReporteInventario = () => {
                   </tbody>
                 </table>
               </div>
-              
+
               <div className="h-[400px] w-full bg-card p-4 rounded-xl border border-border">
                 {/* Usar datosGrafico y opcionesGrafico traducidos */}
                 <Bar data={datosGrafico} options={opcionesGrafico} />

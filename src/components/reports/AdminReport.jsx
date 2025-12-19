@@ -135,9 +135,9 @@ const AdminReport = () => {
             <Building2 className="w-8 h-8 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Reporte Gerencial</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Reporte de Gestión Administrativa</h1>
             <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-              <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs font-medium border border-primary/20">CONFIDENCIAL</span>
+              <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs font-medium border border-primary/20">MENSUAL</span>
               <span>•</span>
               <span>{new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
             </div>

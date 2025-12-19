@@ -99,3 +99,29 @@
     }
   }
 }
+
+@layer base {
+  [data-theme="light"] {
+    --chart-bg: 0 0% 100%;
+    --chart-surface: 210 40% 98%;
+    --chart-grid: 214.3 31.8% 91.4%;
+    --chart-axis: 215.4 16.3% 46.9%;
+    --chart-primary: 221.2 83.2% 53.3%;
+    --chart-accent: 199 89% 48%;
+    --chart-tooltip-bg: 0 0% 100%;
+    --chart-tooltip-border: 214.3 31.8% 91.4%;
+    --chart-tooltip-text: 222.2 84% 4.9%;
+  }
+
+  [data-theme="dark"] {
+    --chart-bg: 222.2 84% 4.9%;
+    --chart-surface: 222.2 84% 6%;
+    --chart-grid: 217.2 32.6% 17.5%;
+    --chart-axis: 215 20.2% 65.1%;
+    --chart-primary: 199 89% 48%;
+    --chart-accent: 271 91% 65%;
+    --chart-tooltip-bg: 15 23 42;
+    --chart-tooltip-border: 51 65 85;
+    --chart-tooltip-text: 248 250 252;
+  }
+}

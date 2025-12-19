@@ -16,7 +16,7 @@ const ProductionMap = ({ plants }) => {
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.3 }}
     >
-      <Card className="bg-[#0f172a] border-primary/10 overflow-hidden shadow-lg">
+      <Card className="h-full bg-card border-border shadow-lg">
         <CardContent className="p-0 relative h-[450px]">
           {/* Custom Header similar to the Trend Chart */}
           <div className="absolute top-0 left-0 right-0 z-[1000] p-4 pointer-events-none bg-gradient-to-b from-[#0f172a] to-transparent">

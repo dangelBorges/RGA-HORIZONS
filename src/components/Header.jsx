@@ -21,9 +21,9 @@ const Header = () => {
             </div>
             <div>
               {/* Título Principal Traducido */}
-              <h1 className="text-xl font-bold text-foreground">Análisis Corporativo</h1>
+              <h1 className="text-xl font-bold text-foreground">Reporte Planta Rancagua -- GP Chile</h1>
               {/* Subtítulo Traducido */}
-              <p className="text-sm text-muted-foreground">Inteligencia de Negocios en Tiempo Real</p>
+              <p className="text-sm text-muted-foreground">Datos cargados en Tiempo Real</p>
             </div>
           </div>
           

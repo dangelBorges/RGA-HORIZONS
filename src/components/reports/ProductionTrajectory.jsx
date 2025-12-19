@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend 
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import { TrendingUp, Filter, MousePointerClick } from 'lucide-react';
 
@@ -23,7 +23,7 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
   // Changed default year to '2025' as requested
   const [selectedYear, setSelectedYear] = useState('2025');
   const [selectedMonth, setSelectedMonth] = useState('all');
-  
+
   // State for interactivity: which plant is currently focused/highlighted
   const [focusedPlant, setFocusedPlant] = useState(null);
 
@@ -53,7 +53,7 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
       const d = new Date(getStr(r, 'fecha'));
       if (!isNaN(d.getTime())) ySet.add(d.getFullYear());
     });
-    
+
     // Static months list
     const mList = [
       { value: '0', label: 'Enero' }, { value: '1', label: 'Febrero' },
@@ -94,9 +94,9 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
       const d = new Date(getStr(r, 'fecha'));
       const plant = resolveClientName(r);
       plantsSet.add(plant);
-      
+
       const val = Number(r['completado'] || r['Completado'] || r['completado real'] || r['Completado real'] || 0);
-      
+
       let key, label, sortKey;
 
       if (selectedYear === 'all') {
@@ -142,11 +142,11 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
   };
 
   return (
-    <Card className="border-border bg-slate-950 shadow-lg">
+    <Card className="border-border bg-card shadow-lg">
       <div className="flex flex-col lg:flex-row h-full">
-        
+
         {/* Left Control Panel */}
-        <div className="w-full lg:w-1/4 p-6 border-b lg:border-b-0 lg:border-r border-border bg-slate-900/50 flex flex-col gap-6">
+        <div className="w-full lg:w-1/4 p-6 border-b lg:border-b-0 lg:border-r border-border bg-card flex flex-col gap-6">
           <div>
             <div className="flex items-center gap-2 mb-2 text-primary">
               <TrendingUp className="w-5 h-5" />
@@ -162,8 +162,8 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-2">
                 <Filter className="w-3 h-3" /> Año
               </label>
-              <select 
-                className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-md p-2.5 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+              <select
+                className="w-full bg-card border border-slate-700 text-blue-700 text-sm rounded-md p-2.5 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
                 value={selectedYear}
                 onChange={(e) => {
                   setSelectedYear(e.target.value);
@@ -181,8 +181,8 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-2">
                 <Filter className="w-3 h-3" /> Mes
               </label>
-              <select 
-                className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-md p-2.5 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              <select
+                className="w-full bg-card border border-slate-700 text-blue-700 text-sm rounded-md p-2.5 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
                 disabled={selectedYear === 'all'}
@@ -196,24 +196,24 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
           </div>
 
           {/* Interactive Hint */}
-          <div className="bg-slate-800/50 p-3 rounded-md border border-slate-700/50 mt-2">
-             <div className="flex items-start gap-2 text-xs text-slate-400">
-                <MousePointerClick className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <p>
-                  Tip: Haz clic en el nombre de una planta en la leyenda para resaltar su línea.
-                </p>
-             </div>
+          <div className="bg-card p-3 rounded-md border border-slate-700/50 mt-2">
+            <div className="flex items-start gap-2 text-xs text-slate-400">
+              <MousePointerClick className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <p>
+                Tip: Haz clic en el nombre de una planta en la leyenda para resaltar su línea.
+              </p>
+            </div>
           </div>
 
           <div className="mt-auto pt-6 border-t border-slate-800">
-             <div className="flex items-center justify-between text-xs text-slate-500">
-                <span>Total Plantas:</span>
-                <span className="font-mono text-slate-300">{plantNames.length}</span>
-             </div>
-             <div className="flex items-center justify-between text-xs text-slate-500 mt-1">
-                <span>Puntos de datos:</span>
-                <span className="font-mono text-slate-300">{chartData.length}</span>
-             </div>
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span>Total Plantas:</span>
+              <span className="font-mono text-slate-300">{plantNames.length}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-500 mt-1">
+              <span>Puntos de datos:</span>
+              <span className="font-mono text-slate-300">{chartData.length}</span>
+            </div>
           </div>
         </div>
 
@@ -223,37 +223,37 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
             <ResponsiveContainer width="100%" height={400}>
               <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.5} />
-                <XAxis 
-                  dataKey="name" 
-                  tick={{ fill: '#94a3b8', fontSize: 12 }} 
+                <XAxis
+                  dataKey="name"
+                  tick={{ fill: '#94a3b8', fontSize: 12 }}
                   axisLine={{ stroke: '#475569' }}
                   tickLine={false}
                   dy={10}
                 />
-                <YAxis 
-                  tick={{ fill: '#94a3b8', fontSize: 12 }} 
+                <YAxis
+                  tick={{ fill: '#94a3b8', fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
                 />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#f8fafc', borderRadius: '8px' }}
                   itemStyle={{ fontSize: '12px' }}
                   formatter={(value) => [`${value.toLocaleString()} kg`, '']}
                   labelStyle={{ marginBottom: '8px', fontWeight: 'bold', color: '#cbd5e1' }}
                 />
-                
+
                 {/* Interactive Legend */}
-                <Legend 
-                  verticalAlign="bottom" 
-                  height={36} 
+                <Legend
+                  verticalAlign="bottom"
+                  height={36}
                   iconType="circle"
                   wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }}
                   onClick={handleLegendClick}
                   formatter={(value, entry) => {
                     const isDimmed = focusedPlant && focusedPlant !== value;
                     return (
-                      <span 
+                      <span
                         className={`ml-1 text-sm ${isDimmed ? 'opacity-40' : 'opacity-100'}`}
                         style={{ fontWeight: focusedPlant === value ? 600 : 400 }}
                       >
@@ -262,12 +262,12 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
                     );
                   }}
                 />
-                
+
                 {plantNames.map((plant, index) => {
                   // Interaction Logic
                   const isFocused = focusedPlant === plant;
                   const isDimmed = focusedPlant && !isFocused;
-                  
+
                   return (
                     <Line
                       key={plant}
@@ -276,10 +276,10 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
                       name={plant}
                       stroke={COLORS[index % COLORS.length]}
                       // Dynamic styling based on focus state
-                      strokeWidth={isFocused ? 5 : 3} 
+                      strokeWidth={isFocused ? 5 : 3}
                       strokeOpacity={isDimmed ? 0.15 : 1}
                       // Only show dots for focused line to reduce clutter, or default if none focused
-                      dot={isFocused ? { r: 4, strokeWidth: 0 } : false} 
+                      dot={isFocused ? { r: 4, strokeWidth: 0 } : false}
                       activeDot={{ r: 6, strokeWidth: 0 }}
                       connectNulls
                       animationDuration={500}

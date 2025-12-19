@@ -4,26 +4,34 @@ import { useProductionReports } from '@/hooks/useReports';
 import ProductionFilters from '@/components/ProductionFilters';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area
+  AreaChart, Area, PieChart, Pie, Cell
 } from 'recharts';
 import {
   Factory,
-  TrendingUp,
   FileText,
   History,
-  Map as MapIcon
-} from 'lucide-react';
+  Map as MapIcon,
+  Users,
+  CheckCircle2,
+  Briefcase,
+  Plane,
+  XCircle,
+  Activity,
+  Target,
+  AlertTriangle
+} from "lucide-react";
 import { motion } from 'framer-motion';
-import ProductionMap from '@/components/reports/ProductionMap';
 import ProductionTrajectory from '@/components/reports/ProductionTrajectory';
+import ProductionReportLayout from '@/components/reports/ProductionReportLayout';
+
 
 // --- TRANSLATION/MAPPING CONSTANTS ---
 const TRANSLATION_MAP = {
   'producción total': 'Producción Total',
-  'enviado a los inplants': 'Enviado a las Plantas Cliente', // Traducimos "INPLANTS" a "Plantas Cliente"
+  'enviado a los inplants': 'Enviado a las Plantas Cliente',
 };
 
-// --- CLIENT MAPPING (No se traduce, se mantiene específico de la empresa) ---
+// --- CLIENT MAPPING (ejemplo empresarial) ---
 const CLIENT_MAPPING = {
   'C0010': 'CMPC Osorno',
   'C0005': 'Chilempack',
@@ -34,274 +42,182 @@ const CLIENT_MAPPING = {
   'C0052': 'Til Til'
 };
 
-const translateText = (key) => TRANSLATION_MAP[key.toLowerCase()] || key;
+const translateText = (key) => TRANSLATION_MAP[key?.toLowerCase()] || key;
 
 const ProductionReport = () => {
   const {
-    productionRecords,
-    kpis: initialKpis,
+    productionRecords = [],
+    kpis: initialKpis = [],
     plantsMapData,
+    topProducts = [],
     loading
   } = useProductionReports();
 
-  // Filter State
+  // ---------------------------
+  // Filters
+  // ---------------------------
   const [filters, setFilters] = useState({
     year: 'all',
     month: 'all',
     dateFrom: '',
     dateTo: ''
   });
-
   const [filtersInitialized, setFiltersInitialized] = useState(false);
 
-  // Helper to safely get value regardless of casing
-  const getVal = (r, key) => r[key] || r[key.charAt(0).toUpperCase() + key.slice(1)] || 0;
-
-  // Enhanced string getter that can look for CveCliente specifically
-  const getStr = (r, key) => {
+  // Safe getters (case-insensitive-ish)
+  const getVal = (r = {}, key) => r?.[key] ?? r?.[key.charAt(0).toUpperCase() + key.slice(1)] ?? 0;
+  const getStr = (r = {}, key) => {
     if (!r) return '';
-    return r[key] || r[key.charAt(0).toUpperCase() + key.slice(1)] || '';
+    return r?.[key] ?? r?.[key.charAt(0).toUpperCase() + key.slice(1)] ?? '';
   };
 
-  // Dedicated helper to resolve Client Name using the Mapping
-  const resolveClientName = (r) => {
-    // Try to find the code in various casing possibilities
+  // Resolve client name by code mapping or fallback to 'cliente' field
+  const resolveClientName = (r = {}) => {
     const code = r['CveCliente'] || r['cvecliente'] || r['cveCliente'] || r['CVE_CLIENTE'];
-
     if (code) {
-      const cleanCode = code.toString().trim();
-      if (CLIENT_MAPPING[cleanCode]) {
-        return CLIENT_MAPPING[cleanCode];
-      }
+      const cleanCode = String(code).trim();
+      if (CLIENT_MAPPING[cleanCode]) return CLIENT_MAPPING[cleanCode];
     }
-
-    // Fallback to existing client name field if no code mapping found
     const rawName = getStr(r, 'cliente');
     return rawName || 'Sin Cliente';
   };
 
-  // --- AUTO-SET FILTERS TO LATEST DATA ---
+  // Auto-set filters to latest date in data
   useEffect(() => {
     if (!loading && productionRecords && productionRecords.length > 0 && !filtersInitialized) {
-      // Find latest date in records
       let maxDate = null;
-
       productionRecords.forEach(r => {
         const dStr = getStr(r, 'fecha');
-        if (dStr) {
-          const d = new Date(dStr);
-          if (!isNaN(d.getTime())) {
-            if (!maxDate || d > maxDate) {
-              maxDate = d;
-            }
-          }
+        if (!dStr) return;
+        const d = new Date(dStr);
+        if (!isNaN(d.getTime())) {
+          if (!maxDate || d > maxDate) maxDate = d;
         }
       });
-
       if (maxDate) {
         setFilters(prev => ({
           ...prev,
-          year: maxDate.getFullYear().toString(),
-          month: maxDate.getMonth().toString(),
+          year: String(maxDate.getFullYear()),
+          month: String(maxDate.getMonth())
         }));
         setFiltersInitialized(true);
       }
     }
   }, [loading, productionRecords, filtersInitialized]);
 
-  // --- EXTRACT AVAILABLE YEARS ---
+  // Extract available years
   const availableYears = useMemo(() => {
-    if (!productionRecords) return [];
-
-    const yearsSet = new Set();
-    productionRecords.forEach(record => {
-      const dateStr = getStr(record, 'fecha');
-      if (dateStr) {
-        const date = new Date(dateStr);
-        if (!isNaN(date.getTime())) {
-          yearsSet.add(date.getFullYear().toString());
-        }
-      }
+    const setYears = new Set();
+    productionRecords.forEach(r => {
+      const dStr = getStr(r, 'fecha');
+      if (!dStr) return;
+      const d = new Date(dStr);
+      if (!isNaN(d.getTime())) setYears.add(String(d.getFullYear()));
     });
-
-    // Convert Set to array and sort descending (newest first)
-    return Array.from(yearsSet).sort((a, b) => b - a);
+    return Array.from(setYears).sort((a, b) => b - a);
   }, [productionRecords]);
 
-  // --- FILTERING LOGIC ---
+  // Filtering logic
   const filteredRecords = useMemo(() => {
     if (!productionRecords) return [];
-
     return productionRecords.filter(record => {
       const dateStr = getStr(record, 'fecha');
       if (!dateStr) return false;
-
       const recordDate = new Date(dateStr);
       if (isNaN(recordDate.getTime())) return false;
 
-      // 1. Year Filter
-      if (filters.year !== 'all') {
-        if (recordDate.getFullYear().toString() !== filters.year) return false;
-      }
-
-      // 2. Month Filter
-      if (filters.month !== 'all') {
-        if (recordDate.getMonth().toString() !== filters.month) return false;
-      }
-
-      // 3. Date Range Filter
+      if (filters.year !== 'all' && String(recordDate.getFullYear()) !== filters.year) return false;
+      if (filters.month !== 'all' && String(recordDate.getMonth()) !== filters.month) return false;
       if (filters.dateFrom) {
-        // Reset time to start of day for accurate comparison
-        const fromDate = new Date(filters.dateFrom);
-        fromDate.setHours(0, 0, 0, 0); // Aseguramos el inicio del día
-        if (recordDate < fromDate) return false;
+        const from = new Date(filters.dateFrom); from.setHours(0, 0, 0, 0);
+        if (recordDate < from) return false;
       }
       if (filters.dateTo) {
-        // Set time to end of day
-        const toDate = new Date(filters.dateTo);
-        toDate.setHours(23, 59, 59, 999);
-        if (recordDate > toDate) return false;
+        const to = new Date(filters.dateTo); to.setHours(23, 59, 59, 999);
+        if (recordDate > to) return false;
       }
-
       return true;
     });
   }, [productionRecords, filters]);
 
-  // --- PREVIOUS 3 MONTHS DENSITY DATA ---
+  // Previous 3 months data for area chart (unchanged)
   const previousPeriodData = useMemo(() => {
     if (!productionRecords || productionRecords.length === 0) return [];
-
-    // 1. Determine Anchor Date (Start of currently selected period)
-    let anchorDate = new Date(); // Default to 'now' if all/all
-
-    if (filters.dateFrom) {
-      anchorDate = new Date(filters.dateFrom);
-      anchorDate.setHours(0, 0, 0, 0);
-    } else {
+    let anchorDate = new Date();
+    if (filters.dateFrom) { anchorDate = new Date(filters.dateFrom); anchorDate.setHours(0, 0, 0, 0); }
+    else {
       const currentYear = new Date().getFullYear();
       const y = filters.year !== 'all' ? parseInt(filters.year) : currentYear;
-
-      if (filters.year !== 'all') {
-        // If specific year selected, start at month 0 (Jan) unless month is specified
-        const m = filters.month !== 'all' ? parseInt(filters.month) : 0;
-        anchorDate = new Date(y, m, 1);
-      } else {
-        // If year is 'all', we default to today as reference point for "previous"
-        anchorDate = new Date();
-      }
+      const m = filters.month !== 'all' ? parseInt(filters.month) : 0;
+      anchorDate = new Date(y, m, 1);
     }
-
-    // 2. Define the 3-month window [StartDate, EndDate)
     const endDate = new Date(anchorDate);
-    const startDate = new Date(anchorDate);
-    startDate.setMonth(startDate.getMonth() - 3);
+    const startDate = new Date(anchorDate); startDate.setMonth(startDate.getMonth() - 3);
 
-    // 3. Filter Records for this specific past window
     const pastRecords = productionRecords.filter(r => {
-      const dStr = getStr(r, 'fecha');
-      if (!dStr) return false;
-      const d = new Date(dStr);
-      return d >= startDate && d < endDate;
+      const dStr = getStr(r, 'fecha'); if (!dStr) return false;
+      const d = new Date(dStr); return d >= startDate && d < endDate;
     });
 
-    // 4. Group by Month for Charting
     const grouped = {};
     for (let d = new Date(startDate); d < endDate; d.setMonth(d.getMonth() + 1)) {
       const sortKey = d.toISOString().slice(0, 7);
-      // Usar 'es-CL' (o 'es-ES') para meses en español
       const label = d.toLocaleString('es-CL', { month: 'short' });
-
-      grouped[sortKey] = {
-        name: label.charAt(0).toUpperCase() + label.slice(1),
-        sortKey: sortKey,
-        value: 0
-      };
+      grouped[sortKey] = { name: label.charAt(0).toUpperCase() + label.slice(1), sortKey, value: 0 };
     }
-
-    // Aggregate values
     pastRecords.forEach(r => {
       const d = new Date(getStr(r, 'fecha'));
       const sortKey = d.toISOString().slice(0, 7);
-
       if (grouped[sortKey]) {
         const val = Number(getVal(r, 'completado')) || Number(getVal(r, 'completado real')) || 0;
         grouped[sortKey].value += val;
       }
     });
-
     return Object.values(grouped).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-
   }, [productionRecords, filters]);
 
-
-  // --- DYNAMIC CALCULATIONS ---
-
-  // 1. Dynamic KPIs
+  // Dynamic KPIs
   const dynamicKPIs = useMemo(() => {
     const totalCompleted = filteredRecords.reduce((acc, r) => acc + (Number(getVal(r, 'completado')) || Number(getVal(r, 'completado real')) || 0), 0);
-
-    // Default fallback if no records just to show something nice, or empty
-    if (productionRecords.length === 0) return initialKpis;
-
-    return [
-      { id: 'k1', label: translateText('Producción Total'), value: totalCompleted, unit: 'kg', trend_up: true, subtext: translateText('Enviado a las Plantas Cliente') },
-    ];
+    if (!productionRecords || productionRecords.length === 0) return initialKpis || [];
+    return [{ id: 'k1', label: translateText('Producción Total'), value: totalCompleted, unit: 'kg', trend_up: true, subtext: translateText('Enviado a las Plantas Cliente') }];
   }, [filteredRecords, initialKpis, productionRecords]);
 
-  // 2. Production by Plant (Grouped by RESOLVED CLIENT NAME)
+  // Production by plant
   const productionByPlant = useMemo(() => {
     const grouped = {};
     filteredRecords.forEach(r => {
-      const plantName = resolveClientName(r);
+      const name = resolveClientName(r);
       const val = Number(getVal(r, 'completado')) || Number(getVal(r, 'completado real')) || 0;
-
-      if (!grouped[plantName]) grouped[plantName] = 0;
-      grouped[plantName] += val;
+      grouped[name] = (grouped[name] || 0) + val;
     });
+    return Object.keys(grouped).map(k => ({ name: k, value: grouped[k] })).sort((a, b) => b.value - a.value);
+  }, [filteredRecords]);
 
-    return Object.keys(grouped).map(key => ({
-      name: key,
-      value: grouped[key]
-    })).sort((a, b) => b.value - a.value);
-  }, [filteredRecords]); // Eliminamos CLIENT_MAPPING de la dependencia ya que es una constante
-
-  // 3. Production by Client (Also Grouped by RESOLVED CLIENT NAME)
+  // Top 5 clients
   const productionByClient = useMemo(() => {
     const grouped = {};
     filteredRecords.forEach(r => {
-      const clientName = resolveClientName(r);
+      const client = resolveClientName(r);
       const val = Number(getVal(r, 'completado')) || Number(getVal(r, 'completado real')) || 0;
-
-      if (!grouped[clientName]) grouped[clientName] = 0;
-      grouped[clientName] += val;
+      grouped[client] = (grouped[client] || 0) + val;
     });
-
     return Object.entries(grouped)
       .sort(([, a], [, b]) => b - a)
-      .slice(0, 10)
-      .map(([name, vol], index) => ({
-        id: name,
-        rank: index + 1,
-        client_name: name,
-        volume_kilos: vol
-      }));
-  }, [filteredRecords]); // Eliminamos CLIENT_MAPPING de la dependencia ya que es una constante
+      .slice(0, 5)
+      .map(([name, vol], i) => ({ id: name, rank: i + 1, client_name: name, volume_kilos: vol }));
+  }, [filteredRecords]);
 
-  // 4. Production by Article (Group by 'articulo')
+  // Production by article
   const productionByArticle = useMemo(() => {
     const grouped = {};
     filteredRecords.forEach(r => {
       const art = getStr(r, 'articulo') || 'Varios';
       const val = Number(getVal(r, 'completado')) || Number(getVal(r, 'completado real')) || 0;
-      if (!grouped[art]) grouped[art] = 0;
-      grouped[art] += val;
+      grouped[art] = (grouped[art] || 0) + val;
     });
-    return Object.keys(grouped)
-      .map(key => ({ name: key, value: grouped[key] }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 8); // Top 8 articles
+    return Object.keys(grouped).map(k => ({ name: k, value: grouped[k] })).sort((a, b) => b.value - a.value).slice(0, 8);
   }, [filteredRecords]);
-
 
   // Helper constants
   const totalProductionVal = dynamicKPIs.find(k => k.label === 'Producción Total')?.value || 0;
@@ -309,9 +225,42 @@ const ProductionReport = () => {
   const totalCompletedForEfficiency = filteredRecords.reduce((acc, r) => acc + (Number(getVal(r, 'completado')) || Number(getVal(r, 'completado real')) || 0), 0);
   const efficiencyVal = totalPlannedForEfficiency > 0 ? (totalCompletedForEfficiency / totalPlannedForEfficiency) * 100 : 0;
 
-  // Total previous production for display
-  // const totalPreviousProduction = previousPeriodData.reduce((acc, curr) => acc + curr.value, 0); // Variable no usada visiblemente
 
+  // ---------------------------
+  // ATTENDANCE / RRHH SECTION
+  // - Uses fallback/mock data if you don't yet have real attendance payload
+  // Replace attendanceStats & vacationList with real data when available
+  // ---------------------------
+  const attendanceStats = useMemo(() => {
+    // Fallback mock (replace with real computation if you have attendance data)
+    return [
+      { category: 'Asistencia', percentage: 92, count: 92, color_hex: '#3b82f6' },
+      { category: 'Licencias', percentage: 3, count: 5, color_hex: '#10b981' },
+      { category: 'Vacaciones', percentage: 4, count: 6, color_hex: '#f59e0b' },
+      { category: 'Injustificadas', percentage: 1, count: 2, color_hex: '#ef4444' }
+    ];
+  }, [productionRecords]); // keep dependency so it can be swapped when you feed real data
+
+  const pieData = useMemo(() => attendanceStats.map(s => ({ name: s.category, value: s.percentage, count: s.count, color: s.color_hex })), [attendanceStats]);
+  const totalAttendance = pieData.find(d => d.name === 'Asistencia')?.value ?? 0;
+  const totalAbsences = pieData.filter(d => d.name !== 'Asistencia').reduce((acc, cur) => acc + (cur.count || 0), 0);
+
+  // Example upcoming vacations list (fallback)
+  const vacationList = useMemo(() => ([
+    { id: 'v1', employee_name: 'Jorge Mena', days_count: 6 },
+    { id: 'v2', employee_name: 'Osvaldo Núñez', days_count: 2 },
+    { id: 'v3', employee_name: 'Carola Lazcano', days_count: 2 },
+    { id: 'v4', employee_name: 'Benjamín Pino', days_count: 1 },
+    { id: 'v5', employee_name: 'Antonio Pérez', days_count: 5 }
+  ]), []);
+
+  // Metrics shown in executive RRHH card
+  const totalProduction = totalProductionVal;
+  const efficiency = `${Math.round(efficiencyVal)}%`;
+
+  // ---------------------------
+  // RENDER / LOADING
+  // ---------------------------
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-pulse">
@@ -323,265 +272,410 @@ const ProductionReport = () => {
   }
 
   return (
-    <div className="space-y-6 pb-10">
+    <ProductionReportLayout>
 
-      {/* --- FILTERS --- */}
-      <ProductionFilters
-        filters={filters}
-        onFilterChange={setFilters}
-        availableYears={availableYears}
-      />
+      <div className="space-y-6 pb-10">
+        {/* Filters */}
+        <ProductionFilters
+          filters={filters}
+          onFilterChange={setFilters}
+          availableYears={availableYears}
+        />
 
-      <section className="space-y-6">
-        <div className="flex items-center gap-2 mb-2">
-          <Factory className="w-6 h-6 text-primary" />
-          <h2 className="text-2xl font-bold tracking-tight">Dashboard de Producción</h2>
-        </div>
+        <section className="space-y-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Factory className="w-6 h-6 text-primary" />
+            <h2 className="text-2xl font-bold tracking-tight">Dashboard de Producción</h2>
+          </div>
 
-        {/* --- MAIN GRID LAYOUT (12 Columns) --- */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* MAIN GRID */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-          {/* --- LEFT COLUMN (Span 3): KPI & Trend --- */}
-          <div className="lg:col-span-3 flex flex-col gap-6">
-            {/* 1. Top Left: KPI Card (Producción Total) */}
-            <div className="flex-1 min-h-[180px]">
-              {dynamicKPIs.map((kpi) => (
-                <Card key={kpi.id} className="h-full bg-slate-950 border-cyan-500/20 shadow-lg relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
+            {/* LEFT: KPIs & Trend */}
+            <div className="lg:col-span-3 flex flex-col gap-6">
+              <div className="flex-1 min-h-[180px]">
+                {dynamicKPIs.map(kpi => (
+                  <Card key={kpi.id} className="h-full bg-card border-cyan-500/20 shadow-lg relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-cyan-400 font-bold uppercase tracking-wider text-sm">{kpi.label}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="mt-2">
+                        <span className="text-4xl lg:text-5xl font-extrabold text-blue-700 tracking-tight">
+                          {parseFloat(kpi.value).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </span>
+                        <div className="text-xl font-bold text-slate-500 mt-1">{kpi.unit?.toUpperCase()}</div>
+                      </div>
+                      {kpi.subtext && <p className="text-xs text-slate-400 mt-4 flex items-center gap-1">{kpi.subtext}</p>}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              <div className="flex-1 min-h-[250px]">
+                <Card className="h-full bg-card shadow-lg border-purple-500/20 flex flex-col">
                   <CardHeader className="pb-2">
-                    {/* KPI Title translated */}
-                    <CardTitle className="text-cyan-400 font-bold uppercase tracking-wider text-sm">{kpi.label}</CardTitle>
+                    <CardTitle className="text-sm font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2">
+                      <History className="w-4 h-4" /> Últimos 3 Meses
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="mt-2">
-                      <span className="text-4xl lg:text-5xl font-extrabold text-white tracking-tight">
-                        {parseFloat(kpi.value).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                      </span>
-                      <div className="text-xl font-bold text-slate-500 mt-1">{kpi.unit.toUpperCase()}</div>
+                  <CardContent className="flex-1 min-h-0 pt-0">
+                    <div className="h-full w-full min-h-[180px]">
+                      {previousPeriodData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={previousPeriodData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3} />
+                                <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.1} vertical={false} />
+                            <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#334155' }} interval={0} />
+                            <YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`} />
+                            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#f8fafc', fontSize: '12px' }} itemStyle={{ color: '#22d3ee' }} formatter={(value) => [`${parseInt(value).toLocaleString()} kg`, 'Volumen']} />
+                            <Area type="monotone" dataKey="value" stroke="#22d3ee" fillOpacity={1} fill="url(#colorValue)" strokeWidth={3} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-muted-foreground">Sin datos previos</div>
+                      )}
                     </div>
-                    {kpi.subtext && (
-                      <p className="text-xs text-slate-400 mt-4 flex items-center gap-1">
-                        {/* KPI Subtext translated */}
-                        {kpi.subtext}
-                      </p>
-                    )}
                   </CardContent>
                 </Card>
-              ))}
+              </div>
             </div>
 
-            {/* 2. Bottom Left: Last 3 Months Trend */}
-            <div className="flex-1 min-h-[250px]">
-              <Card className="h-full bg-slate-950 border-purple-500/20 flex flex-col">
+            {/* CENTER: Production by Plant */}
+            <div className="lg:col-span-6 max-h-[500px] h-auto">
+              <Card className="h-full bg-card border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)] flex flex-col">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2">
-                    <History className="w-4 h-4" /> Últimos 3 **Meses**
-                  </CardTitle>
+                  <CardTitle className="text-[#06b6d4] text-lg font-bold tracking-wide">Producción por Planta</CardTitle>
+                  <CardDescription className="text-slate-400 text-xs">Total completado agrupado por planta del holding</CardDescription>
                 </CardHeader>
-                <CardContent className="flex-1 min-h-0 pt-0">
-                  <div className="h-full w-full min-h-[180px]">
-                    {previousPeriodData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={previousPeriodData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3} />
-                              <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" opacity={0.1} vertical={false} />
-                          <XAxis
-                            dataKey="name"
-                            tick={{ fill: '#64748b', fontSize: 10 }}
-                            tickLine={false}
-                            axisLine={{ stroke: '#334155' }}
-                            interval={0}
-                          />
-                          <YAxis
-                            tick={{ fill: '#64748b', fontSize: 10 }}
-                            axisLine={false}
-                            tickLine={false}
-                            tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
-                          />
-                          <Tooltip
-                            contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#f8fafc', fontSize: '12px' }}
-                            itemStyle={{ color: '#22d3ee' }}
-                            formatter={(value) => [`${parseInt(value).toLocaleString()} kg`, 'Volumen']}
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey="value"
-                            stroke="#22d3ee"
-                            fillOpacity={1}
-                            fill="url(#colorValue)"
-                            strokeWidth={3}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-                        <p className="text-xs">Sin datos previos</p>
-                      </div>
-                    )}
-                  </div>
+                <CardContent className="flex-1 min-h-0 pt-4">
+                  {productionByPlant.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={productionByPlant} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.1} horizontal vertical stroke="#06b6d4" />
+                        <XAxis type="number" hide />
+                        <YAxis dataKey="name" type="category" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} width={140} />
+                        <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px', color: '#f8fafc' }} cursor={{ fill: '#06b6d4', opacity: 0.1 }} formatter={(value) => [`${parseInt(value).toLocaleString()} kg`, 'Volumen']} />
+                        <Bar dataKey="value" fill="#06b6d4" radius={[0, 4, 4, 0]} barSize={32} name="Volumen" label={{ position: 'right', fill: '#fff', fontSize: 12, formatter: val => parseInt(val).toLocaleString() }} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground">Sin datos para el periodo seleccionado</div>
+                  )}
                 </CardContent>
               </Card>
             </div>
+
+            {/* RIGHT: Top Clientes (vertical narrow) */}
+            <div className="lg:col-span-3 max-h-[500px] h-auto">
+              <Card className="h-full bg-card border-border shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-lg">Top Clientes Consolidados</CardTitle>
+                  <CardDescription>Ranking por volumen</CardDescription>
+                </CardHeader>
+
+                <CardContent className="overflow-y-auto pr-2 scrollbar-thin">
+                  {productionByClient.length > 0 ? productionByClient.map(client => (
+                    <div key={client.id} className="flex items-center justify-between mb-3 p-2 rounded-lg bg-white/5 hover:bg-white/10">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${client.rank <= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                          {client.rank}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{client.client_name}</p>
+                          <div className="bg-muted/30 h-1.5 mt-1 rounded-full overflow-hidden w-24">
+                            <div className="h-full bg-primary/70 rounded-full" style={{ width: `${(client.volume_kilos / (productionByClient[0]?.volume_kilos || 1)) * 100}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-sm font-mono text-muted-foreground">{parseInt(client.volume_kilos).toLocaleString()} kg</span>
+                    </div>
+                  )) : <div className="text-center text-muted-foreground py-6">Sin datos</div>}
+                </CardContent>
+              </Card>
+            </div>
+
+          </div>
+        </section>
+
+        {/* SECTION 2: Trajectory */}
+        <section className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="lg:col-span-2">
+            <ProductionTrajectory records={productionRecords} clientMapping={CLIENT_MAPPING} />
+          </div>
+        </section>
+
+
+
+
+
+        
+
+        {/* ================= NUEVAS SECCIONES ================= 
+
+        {/* ================= PRODUCTOS MÁS DEMANDADOS ================= 
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Factory className="w-5 h-5 text-indigo-500" />
+            <h3 className="text-xl font-bold tracking-tight">
+              Productos más demandados
+            </h3>
           </div>
 
-          {/* --- CENTER COLUMN (Span 6): Production by Plant --- */}
-          <div className="lg:col-span-6 min-h-[500px]">
-            <Card className="h-full bg-slate-950 border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)] flex flex-col">
+          <Card className="bg-card border-border shadow-lg">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm uppercase tracking-wider text-indigo-400">
+                Top productos por volumen producido
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent className="h-[380px]">
+              {topProducts.length > 0 ? (
+                <ResponsiveContainer width="100%" height={360}>
+                  <BarChart
+                    data={topProducts}
+                    layout="vertical"
+                    margin={{ top: 10, right: 40, left: 40, bottom: 10 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} opacity={0.2} />
+
+                    <XAxis
+                      type="number"
+                      tick={{ fill: '#475569', fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+
+                    <YAxis
+                      type="category"
+                      dataKey="producto"
+                      width={240}
+                      tick={{
+                        fill: '#0f172a',
+                        fontSize: 12,
+                        fontWeight: 500
+                      }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+
+                    <Tooltip
+                      formatter={(v) => [`${Number(v).toLocaleString()} kg`, 'Volumen']}
+                      contentStyle={{
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px'
+                      }}
+                    />
+
+                    <Bar
+                      dataKey="total_kg"
+                      fill="#6366f1"
+                      radius={[0, 6, 6, 0]}
+                      barSize={28}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  Sin datos de productos
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+
+        <section className="h-[480px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
+          <span className="text-xl font-bold">Producción histórica</span>
+        </section>
+
+        <section className="h-[420px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
+          <span className="text-xl font-bold">Producción por planta</span>
+        </section>
+
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="h-[380px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
+            Incrementos
+          </div>
+          <div className="h-[380px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
+            Descensos
+          </div>
+        </section>
+
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="h-[300px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
+            Clientes nuevos
+          </div>
+          <div className="h-[300px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
+            Clientes perdidos
+          </div>
+        </section>
+
+        <section className="h-[480px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
+          <span className="text-xl font-bold">Comparativo interanual</span>
+        </section>
+*/}
+
+        {/* SECTION: ASISTENCIA / RRHH (layout basado en imagen) */}
+        <section className="space-y-6 pt-6 border-t border-border/50">
+          <div className="flex items-center gap-2 mb-4">
+            <Users className="w-6 h-6 text-emerald-500" />
+            <h2 className="text-2xl font-bold tracking-tight">Informe de Gestión y RRHH</h2>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            {/* LEFT: Donut + Legend + Vacations */}
+            <Card className="bg-card border-border overflow-hidden">
               <CardHeader className="pb-2">
-                <CardTitle className="text-[#06b6d4] text-lg font-bold tracking-wide">Producción por Planta</CardTitle>
-                <CardDescription className="text-slate-400 text-xs">Total completado agrupado por planta del holding</CardDescription>
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-lg text-blue-400">Desglose Ausentismos</CardTitle>
+                  <div className="flex items-center gap-2 px-3 py-1 bg-blue-500/10 rounded-full border border-blue-500/20">
+                    <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                    <span className="text-sm font-bold text-blue-500">{totalAttendance}% Asistencia</span>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="flex-1 min-h-0 pt-4">
-                {productionByPlant.length > 0 ? (
+
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                {/* Donut chart */}
+                <div className="h-[260px] relative flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={productionByPlant} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" opacity={0.1} horizontal={true} vertical={true} stroke="#06b6d4" />
-                      <XAxis type="number" hide />
-                      <YAxis
-                        dataKey="name"
-                        type="category"
-                        tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={140}
-                      />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px', color: '#f8fafc' }}
-                        cursor={{ fill: '#06b6d4', opacity: 0.1 }}
-                        formatter={(value) => [`${parseInt(value).toLocaleString()} kg`, 'Volumen']} // Tooltip name translated
-                      />
-                      <Bar
-                        dataKey="value"
-                        fill="#06b6d4"
-                        radius={[0, 4, 4, 0]}
-                        barSize={32}
-                        name="Volumen" // Bar name translated
-                        label={{ position: 'right', fill: '#fff', fontSize: 12, formatter: (val) => parseInt(val).toLocaleString() }}
-                      />
-                    </BarChart>
+                    <PieChart>
+                      <Pie data={pieData} cx="45%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value" stroke="none">
+                        {pieData.map((entry, idx) => <Cell key={`cell-${idx}`} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip contentStyle={{ backgroundColor: 'var(--card)', borderRadius: '8px', border: '1px solid var(--border)' }} />
+                    </PieChart>
                   </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground">Sin datos para el periodo seleccionado</div>
-                )}
+
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-2xl font-bold text-foreground">{totalAttendance}%</span>
+                    <span className="text-[10px] text-muted-foreground uppercase">GLOBAL</span>
+                  </div>
+                </div>
+
+                {/* Legend + Vacations */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">RESUMEN POR CATEGORÍA</h4>
+                    {pieData.filter(d => d.name !== 'Asistencia').map(item => (
+                      <div key={item.name} className="flex items-center justify-between p-2 rounded bg-muted/20 text-sm">
+                        <div className="flex items-center gap-2">
+                          {item.name === 'Licencias' && <Briefcase className="w-4 h-4 text-emerald-500" />}
+                          {item.name === 'Vacaciones' && <Plane className="w-4 h-4 text-amber-500" />}
+                          {item.name === 'Injustificadas' && <XCircle className="w-4 h-4 text-red-500" />}
+                          <span>{item.name}</span>
+                        </div>
+                        <span className="font-mono font-medium">{item.count}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-4 border-t border-border">
+                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">PRÓXIMAS VACACIONES</h4>
+                    <div className="max-h-[140px] overflow-y-auto space-y-1 pr-2 scrollbar-thin scrollbar-thumb-muted">
+                      {vacationList.map(v => (
+                        <div key={v.id} className="flex justify-between text-xs text-muted-foreground hover:text-foreground">
+                          <span>{v.employee_name}</span>
+                          <span>{v.days_count} días</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* RIGHT: Executive RRHH summary */}
+            <Card className="bg-card border-primary/20 overflow-hidden relative">
+              <div className="absolute top-0 right-0 p-3 opacity-20">
+                <FileText className="w-24 h-24 text-primary" />
+              </div>
+              <CardHeader className="relative z-10 pb-4">
+                <CardTitle className="text-lg text-primary flex items-center gap-2">
+                  <Activity className="w-5 h-5" />
+                  Resumen Ejecutivo Mensual
+                </CardTitle>
+                <CardDescription>Consolidado de KPIs Críticos y Eficiencia</CardDescription>
+              </CardHeader>
+
+              <CardContent className="relative z-10 space-y-6">
+                {/* Metrics grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-background/40 p-3 rounded-lg border border-white/5 backdrop-blur-sm">
+                    <span className="text-xs text-muted-foreground block mb-1">Total Producción</span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xl font-bold text-foreground">{parseFloat(totalProduction).toLocaleString()}</span>
+                      <span className="text-xs font-mono text-primary">kg</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-background/40 p-3 rounded-lg border border-white/5 backdrop-blur-sm">
+                    <span className="text-xs text-muted-foreground block mb-1">Eficiencia Global</span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xl font-bold text-emerald-500">{efficiency}</span>
+                      <Target className="w-3 h-3 text-emerald-500 ml-1" />
+                    </div>
+                  </div>
+
+                  <div className="bg-background/40 p-3 rounded-lg border border-white/5 backdrop-blur-sm">
+                    <span className="text-xs text-muted-foreground block mb-1">Reproceso</span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xl font-bold text-amber-500">1.2%</span>
+                      <AlertTriangle className="w-3 h-3 text-amber-500 ml-1" />
+                    </div>
+                  </div>
+
+                  <div className="bg-background/40 p-3 rounded-lg border border-white/5 backdrop-blur-sm">
+                    <span className="text-xs text-muted-foreground block mb-1">Ausentismo Total</span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xl font-bold text-red-400">{totalAbsences}</span>
+                      <span className="text-xs text-muted-foreground">colaboradores</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Highlights */}
+                <div className="bg-primary/5 rounded-lg p-4 border border-primary/10">
+                  <h4 className="text-xs font-bold uppercase text-primary mb-3">Highlights del Mes</h4>
+                  <ul className="space-y-2">
+                    <li className="text-sm flex items-start gap-2 text-muted-foreground">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <span>La producción total superó la meta en un <strong>4.5%</strong> gracias a la optimización en planta Santiago.</span>
+                    </li>
+                    <li className="text-sm flex items-start gap-2 text-muted-foreground">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
+                      <span>Se observa un leve aumento en reprocesos (<strong>+0.3%</strong>) en la línea de envasado automatizado.</span>
+                    </li>
+                    <li className="text-sm flex items-start gap-2 text-muted-foreground">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
+                      <span>Asistencia promedio se mantiene estable en <strong>{totalAttendance}%</strong>, con baja incidencia de licencias médicas.</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="flex justify-between items-center pt-2">
+                  <span className="text-[10px] text-muted-foreground/50 uppercase">Última actualización: hace 2 horas</span>
+                  <button className="text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1 transition-colors">
+                    Ver Reporte Completo <FileText className="w-3 h-3" />
+                  </button>
+                </div>
               </CardContent>
             </Card>
           </div>
+        </section>
+      </div>
 
-          {/* --- RIGHT COLUMN (Span 3): Map --- */}
-          <div className="lg:col-span-3 min-h-[500px]">
-            <Card className="h-full bg-slate-950 border-border overflow-hidden flex flex-col">
-              <CardHeader className="pb-2 bg-slate-900/50">
-                <CardTitle className="text-sm font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
-                  <MapIcon className="w-4 h-4" /> Mapa Chile — Producción
-                </CardTitle>
-              </CardHeader>
-              <div className="flex-1 relative bg-slate-900/20">
-                <ProductionMap plants={plantsMapData} />
-              </div>
-            </Card>
-          </div>
-
-        </div>
-      </section>
-
-      {/* --- SECTION 2: ADDITIONAL CHARTS (Trajectory & Top Clients) --- */}
-      <section className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="lg:col-span-2">
-          {/* ProductionTrajectory component is assumed to handle its own internal translations if needed */}
-          <ProductionTrajectory records={productionRecords} clientMapping={CLIENT_MAPPING} />
-        </div>
-
-        {/* Top Clients Moved Here to preserve data but respect top layout */}
-        <Card className="bg-slate-900/20 border-border">
-          <CardHeader>
-            <CardTitle className="text-lg">Top Clientes Consolidados</CardTitle>
-            <CardDescription>Ranking por volumen de producción</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px] overflow-y-auto pr-2 scrollbar-thin">
-            <div className="space-y-4">
-              {productionByClient.map((client) => (
-                <div key={client.id} className="flex items-center justify-between hover:bg-white/5 p-2 rounded-lg transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${client.rank <= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-                      {client.rank}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{client.client_name}</p>
-                      <div className="bg-muted/30 h-1.5 mt-1 rounded-full overflow-hidden w-24">
-                        <div
-                          className="h-full bg-primary/70 rounded-full"
-                          style={{ width: `${(client.volume_kilos / (productionByClient[0]?.volume_kilos || 1)) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-sm font-mono text-muted-foreground">{parseInt(client.volume_kilos).toLocaleString()} kg</span>
-                </div>
-              ))}
-              {productionByClient.length === 0 && <div className="text-center text-muted-foreground py-10">Sin datos</div>}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-slate-900/20 border-border flex flex-col justify-center items-center p-6">
-          <div className="relative w-40 h-40 flex items-center justify-center">
-            <svg className="w-full h-full transform -rotate-90">
-              <circle cx="80" cy="80" r="70" stroke="currentColor" strokeWidth="10" fill="transparent" className="text-muted/20" />
-              <circle
-                cx="80" cy="80" r="70"
-                stroke="currentColor" strokeWidth="10" fill="transparent"
-                strokeDasharray={440}
-                strokeDashoffset={440 - (440 * efficiencyVal) / 100}
-                className={`${parseFloat(efficiencyVal) > 90 ? 'text-emerald-500' : 'text-amber-500'} transition-all duration-1000 ease-out`}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-4xl font-bold">{efficiencyVal.toFixed(1)}%</span>
-              <span className="text-xs uppercase text-muted-foreground mt-1">Eficiencia</span> {/* Label translated */}
-            </div>
-          </div>
-        </Card>
-      </section>
-
-      {/* --- SECTION 3: EXECUTIVE SUMMARY (Dynamic) --- */}
-      <section className="space-y-6 pt-8 border-t border-border/50 mt-8">
-        <Card className="bg-primary/5 border-primary/10">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-primary">
-              <FileText className="w-5 h-5" />
-              Insights Generados
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-3">
-              <li className="flex gap-3 text-sm text-foreground/80">
-                <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary mt-2" />
-                <span>
-                  El volumen total de producción para el periodo seleccionado es de <strong>{parseFloat(totalProductionVal).toLocaleString()} kg</strong>.
-                </span>
-              </li>
-              <li className="flex gap-3 text-sm text-foreground/80">
-                <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary mt-2" />
-                <span>
-                  La planta con mayor actividad es <strong>{productionByPlant[0]?.name || 'N/A'}</strong> con un volumen de {parseInt(productionByPlant[0]?.value || 0).toLocaleString()} kg.
-                </span>
-              </li>
-              <li className="flex gap-3 text-sm text-foreground/80">
-                <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary mt-2" />
-                <span>
-                  El artículo más producido es <strong>{productionByArticle[0]?.name || 'N/A'}</strong>.
-                </span>
-              </li>
-            </ul>
-          </CardContent>
-        </Card>
-      </section>
-    </div>
+    </ProductionReportLayout>
   );
 };
 
