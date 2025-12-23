@@ -2,20 +2,20 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useAdminReports } from '@/hooks/useReports';
-import { 
-  Building2, 
-  Truck, 
-  Sparkles, 
-  Thermometer, 
-  Users, 
-  Container, 
-  Wrench, 
-  Bug, 
-  AlertTriangle, 
-  ClipboardCheck, 
-  MessageSquare, 
-  GraduationCap, 
-  FlaskConical, 
+import {
+  Building2,
+  Truck,
+  Sparkles,
+  Thermometer,
+  Users,
+  Container,
+  Wrench,
+  Bug,
+  AlertTriangle,
+  ClipboardCheck,
+  MessageSquare,
+  GraduationCap,
+  FlaskConical,
   Droplets,
   Palette,
   Beaker,
@@ -25,48 +25,44 @@ import { motion } from 'framer-motion';
 
 // 1. Icon Map (No requiere traducción directa, solo mapeo)
 const iconMap = {
-  infra: Building2,
-  vehicles: Truck,
-  cleaning: Sparkles,
-  env: Thermometer,
-  suppliers: Users,
-  imports: Container,
-  vehicle_maint: Wrench,
-  pests: Bug,
-  corrective: AlertTriangle,
-  audit: ClipboardCheck,
-  talks: MessageSquare,
-  training: GraduationCap,
-  raw_mat: FlaskConical,
-  water: Droplets
+  maintenance_calibration: Wrench,
+  vehicle_inspection: Truck,
+  general_cleaning: Sparkles,
+  environmental_controls: Thermometer,
+  supplier_evaluation: Users,
+  import_records: Container,
+  vehicle_maintenance: Wrench,
+  pest_control: Bug,
+  action_plans: AlertTriangle,
+  internal_audits: ClipboardCheck,
+  training_sessions: GraduationCap,
+  raw_material_analysis: FlaskConical
 };
+
 
 // 2. Translation Map (Mapeo de las claves de datos a títulos en español)
 const TRANSLATION_MAP = {
-  infra: 'Mantenimiento de Infraestructura',
-  vehicles: 'Control de Vehículos',
-  cleaning: 'Programa de Limpieza',
-  env: 'Monitoreo Ambiental (H&T)',
-  suppliers: 'Evaluación de Proveedores',
-  imports: 'Seguimiento de Importaciones',
-  vehicle_maint: 'Mantenimiento de Vehículos',
-  pests: 'Control de Plagas',
-  corrective: 'Acciones Correctivas (ACs)',
-  audit: 'Auditorías Internas',
-  talks: 'Charlas de Seguridad',
-  training: 'Capacitación General',
-  raw_mat: 'Recepción de Materia Prima',
-  water: 'Análisis de Calidad de Agua',
+  maintenance_calibration: 'Registros de Mantenimiento y Calibración',
+  vehicle_inspection: 'Registros de Revisión de Vehículos',
+  general_cleaning: 'Registros de Limpieza General',
+  environmental_controls: 'Registros de Controles Ambientales',
+  supplier_evaluation: 'Evaluación de Proveedores',
+  import_records: 'Registros de Importaciones',
+  vehicle_maintenance: 'Mantenimiento de Vehículos',
+  pest_control: 'Registros de Control de Plagas',
+  action_plans: 'Planes de Acción y Acciones Correctivas',
+  internal_audits: 'Auditorías Internas (Trazabilidad)',
+  training_sessions: 'Charlas y Capacitaciones',
+  raw_material_analysis: 'Análisis de Materia Prima (Importación Entrante)',
+
   ok: 'OK',
   warning: 'Alerta',
   critical: 'Crítico',
   active: 'Activo',
   completed: 'Completado',
-  urgent: 'Urgente',
-  new_colors: 'Nuevos Colores',
-  formulas: 'Modificaciones de Fórmulas',
-  open_actions: 'Acciones Abiertas'
+  urgent: 'Urgente'
 };
+
 
 const AdminReport = () => {
   const { kpis, sections, sidebar, loading } = useAdminReports();
@@ -113,19 +109,19 @@ const AdminReport = () => {
     // Usar translateText para traducir la categoría de la barra lateral
     const categoryKey = item.category || 'misc';
     const translatedCategory = translateText(categoryKey);
-    
+
     if (!acc[translatedCategory]) acc[translatedCategory] = [];
     acc[translatedCategory].push(item);
     return acc;
   }, {});
-  
+
   // Obtenemos las categorías para iterar
   const sidebarCategories = Object.keys(groupedSidebar);
 
   return (
     <div className="space-y-8">
       {/* Header Section */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-border pb-6"
@@ -170,7 +166,7 @@ const AdminReport = () => {
                   const Icon = iconMap[section.section_key] || Building2;
                   const isCritical = section.status === 'critical';
                   const isWarning = section.status === 'warning';
-                  
+
                   // Traducción del título principal de la sección
                   const translatedTitle = translateText(section.section_key) || section.title;
 
@@ -178,11 +174,10 @@ const AdminReport = () => {
                     <AccordionItem key={section.id} value={section.id} className="border-b border-border last:border-0 px-6">
                       <AccordionTrigger className="hover:no-underline group">
                         <div className="flex items-center gap-4 w-full">
-                          <div className={`p-2 rounded-lg transition-colors ${
-                            isCritical ? 'bg-red-500/20 text-red-500' : 
-                            isWarning ? 'bg-amber-500/20 text-amber-500' : 
-                            'bg-primary/10 text-primary group-hover:bg-primary/20'
-                          }`}>
+                          <div className={`p-2 rounded-lg transition-colors ${isCritical ? 'bg-red-500/20 text-red-500' :
+                              isWarning ? 'bg-amber-500/20 text-amber-500' :
+                                'bg-primary/10 text-primary group-hover:bg-primary/20'
+                            }`}>
                             <Icon className="w-5 h-5" />
                           </div>
                           <div className="flex-1 text-left">
@@ -195,19 +190,53 @@ const AdminReport = () => {
                           </div>
                         </div>
                       </AccordionTrigger>
-                      <AccordionContent className="pt-2 pb-6 px-14">
-                        <div className="grid gap-2">
-                          {Array.isArray(section.content) && section.content.map((item, idx) => (
-                            <div key={idx} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
-                              {/* Asumimos que item.label / item.item puede ser el campo a traducir */}
-                              <span className="text-muted-foreground">{translateText(item.label?.toLowerCase() || item.item?.toLowerCase()) || item.label || item.item || 'Detalle'}</span>
-                              <span className="font-medium text-foreground">
-                                {/* Asumimos que item.status también puede ser un campo a traducir (e.g., 'completed') */}
-                                {translateText(item.status?.toLowerCase()) || item.val || item.score || item.result || item.attendance || '—'}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
+                      <AccordionContent className="pt-4 pb-6 px-4">
+                        {section.records && section.records.length > 0 ? (
+                          (() => {
+                            const columns = ADMIN_SECTION_COLUMNS[section.section_key] || [];
+
+                            return (
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm border-collapse">
+                                  <thead>
+                                    <tr className="border-b">
+                                      {columns.map(col => (
+                                        <th
+                                          key={col.key}
+                                          className="text-left py-2 px-2 font-semibold text-muted-foreground"
+                                        >
+                                          {col.label}
+                                        </th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+
+                                  <tbody>
+                                    {section.records.map((row, idx) => (
+                                      <tr key={idx} className="border-b last:border-0">
+                                        {columns.map(col => (
+                                          <td
+                                            key={col.key}
+                                            className={`py-2 px-2 ${col.type === 'status'
+                                                ? getStatusStyle(row.data[col.key])
+                                                : ''
+                                              }`}
+                                          >
+                                            {row.data[col.key] ?? '—'}
+                                          </td>
+                                        ))}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <div className="text-sm text-muted-foreground italic">
+                            Sin registros para este período
+                          </div>
+                        )}
                       </AccordionContent>
                     </AccordionItem>
                   );

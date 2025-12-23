@@ -1,7 +1,9 @@
 import * as React from "react"
 import * as AccordionPrimitive from "@radix-ui/react-accordion"
 import { ChevronDown } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "../../lib/utils"
+import { getStatusStyle } from '../../utils/statusStyles';
+import { ADMIN_SECTION_COLUMNS } from '../../utils/adminSectionColumns';
 
 const Accordion = AccordionPrimitive.Root
 

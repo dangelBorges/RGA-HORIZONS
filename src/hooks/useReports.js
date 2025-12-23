@@ -16,7 +16,7 @@ export const useAdminReports = () => {
         const { data: kpisData, error: kpisError } = await supabase.from('admin_kpis').select('*');
         if (kpisError) throw kpisError;
 
-        const { data: sectionsData, error: sectionsError } = await supabase.from('admin_sections').select('*').order('sort_order', { ascending: true });
+        const { data: sectionsData, error: sectionsError } = await supabase.from('admin_sections_v2').select('*').order('sort_order', { ascending: true });
         if (sectionsError) throw sectionsError;
 
         const { data: sidebarData, error: sidebarError } = await supabase.from('admin_sidebar').select('*');
