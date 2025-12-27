@@ -160,7 +160,7 @@ export default function ProductionHistoricalProducts({
     return (
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* CONTROLES */}
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 min-h-[420px]">
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-sm">Filtros</CardTitle>

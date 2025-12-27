@@ -218,9 +218,9 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
         </div>
 
         {/* Right Chart Area */}
-        <div className="w-full lg:w-3/4 p-4 lg:p-6 min-h-[400px]">
+        <div className="w-full lg:w-3/4 p-4 lg:p-6 h-[520px] lg:h-[600px]">
           {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.5} />
                 <XAxis
@@ -246,7 +246,7 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
                 {/* Interactive Legend */}
                 <Legend
                   verticalAlign="bottom"
-                  height={36}
+                  height={320}
                   iconType="circle"
                   wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }}
                   onClick={handleLegendClick}

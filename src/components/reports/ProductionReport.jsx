@@ -348,7 +348,7 @@ const ProductionReport = () => {
             </div>
 
             {/* CENTER: Production by Plant */}
-            <div className="lg:col-span-6 max-h-[500px] h-auto">
+            <div className="lg:col-span-6 h-[500px]">
               <Card className="h-full bg-card border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)] flex flex-col">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-[#06b6d4] text-lg font-bold tracking-wide">Producción por Planta</CardTitle>
@@ -373,7 +373,7 @@ const ProductionReport = () => {
             </div>
 
             {/* RIGHT: Top Clientes (vertical narrow) */}
-            <div className="lg:col-span-3 max-h-[500px] h-auto">
+            <div className="lg:col-span-3 h-[500px]">
               <Card className="h-full bg-card border-border shadow-lg">
                 <CardHeader>
                   <CardTitle className="text-lg">Top Clientes Consolidados</CardTitle>
@@ -405,8 +405,8 @@ const ProductionReport = () => {
         </section>
 
         {/* SECTION 2: Trajectory */}
-        <section className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="lg:col-span-2">
+        <section className="mt-12 block relative">
+          <div className="w-full min-h-[520px] relative overflow-hidden">
             <ProductionTrajectory records={productionRecords} clientMapping={CLIENT_MAPPING} />
           </div>
         </section>
@@ -415,7 +415,7 @@ const ProductionReport = () => {
 
 
 
-        
+
 
         {/* ================= NUEVAS SECCIONES ================= 
 
