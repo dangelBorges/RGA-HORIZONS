@@ -55,23 +55,45 @@ export const useAdminReports = ({ month } = {}) => {
     /* =========================
        Fetch section records
     ========================= */
-    const fetchSectionRecords = async (sectionKey) => {
+    const fetchSectionRecords = async (sectionKey, startDate, endDate) => {
       const config = ADMIN_SECTION_MAP[sectionKey];
 
-      // ⛔ sección inválida o sin tabla real
-      if (!config || !config.table) return [];
+      if (!config || !config.table) {
+        return [];
+      }
+
+      // 🔒 BLOQUEO CRÍTICO
+      if (!startDate || !endDate) {
+        console.warn(
+          `[AdminReports] Skipping ${sectionKey}: invalid date range`,
+          { startDate, endDate }
+        );
+        return [];
+      }
 
       const {
         table,
         dateColumn = 'created_at',
+        mode = 'events',
       } = config;
 
-      const { data, error } = await supabase
-        .from(table)
-        .select('*')
-        .gte(dateColumn, startDate)
-        .lte(dateColumn, endDate)
-        .order(dateColumn, { ascending: false });
+      let query = supabase.from(table).select('*');
+
+      if (mode === 'events') {
+        query = query
+          .gte(dateColumn, startDate)
+          .lte(dateColumn, endDate)
+          .order(dateColumn, { ascending: false });
+      }
+
+      if (mode === 'carry_forward') {
+        query = query
+          .lte(dateColumn, endDate)
+          .order(dateColumn, { ascending: false })
+          .limit(1);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error(`Error loading ${table}:`, error);
@@ -80,6 +102,8 @@ export const useAdminReports = ({ month } = {}) => {
 
       return data || [];
     };
+
+
 
     /* =========================
        Main fetch
@@ -109,9 +133,14 @@ export const useAdminReports = ({ month } = {}) => {
         const sectionsWithRecords = await Promise.all(
           (sectionsMeta || []).map(async (section) => ({
             ...section,
-            records: await fetchSectionRecords(section.section_key),
+            records: await fetchSectionRecords(
+              section.section_key,
+              startDate,
+              endDate
+            ),
           }))
         );
+
 
         /* -------- Sidebar -------- */
         const { data: sidebarData, error: sidebarError } = await supabase
