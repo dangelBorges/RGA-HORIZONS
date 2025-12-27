@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 
-export const useAdminReports = () => {
+export const useAdminReports = ({ month } = {}) => {
   const [kpis, setKpis] = useState([]);
   const [sections, setSections] = useState([]);
   const [sidebar, setSidebar] = useState([]);
@@ -11,15 +11,45 @@ export const useAdminReports = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (!month) return;
+
+    const startDate = `${month}-01`;
+    const endDate = new Date(
+      new Date(startDate).getFullYear(),
+      new Date(startDate).getMonth() + 1,
+      0
+    ).toISOString().slice(0, 10);
+
     const fetchData = async () => {
       try {
-        const { data: kpisData, error: kpisError } = await supabase.from('admin_kpis').select('*');
+        setLoading(true);
+
+        // === KPIs ===
+        const { data: kpisData, error: kpisError } = await supabase
+          .from('admin_kpis')
+          .select('*')
+          .gte('created_at', startDate)
+          .lte('created_at', endDate);
+
         if (kpisError) throw kpisError;
 
-        const { data: sectionsData, error: sectionsError } = await supabase.from('admin_sections_v2').select('*').order('sort_order', { ascending: true });
+        // === SECTIONS ===
+        const { data: sectionsData, error: sectionsError } = await supabase
+          .from('admin_sections_v2')
+          .select('*')
+          .gte('created_at', startDate)
+          .lte('created_at', endDate)
+          .order('sort_order', { ascending: true });
+
         if (sectionsError) throw sectionsError;
 
-        const { data: sidebarData, error: sidebarError } = await supabase.from('admin_sidebar').select('*');
+        // === SIDEBAR ===
+        const { data: sidebarData, error: sidebarError } = await supabase
+          .from('admin_sidebar')
+          .select('*')
+          .gte('created_at', startDate)
+          .lte('created_at', endDate);
+
         if (sidebarError) throw sidebarError;
 
         setKpis(kpisData || []);
@@ -27,15 +57,22 @@ export const useAdminReports = () => {
         setSidebar(sidebarData || []);
       } catch (error) {
         console.error('Error fetching admin reports:', error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load admin reports' });
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to load admin reports',
+        });
       } finally {
         setLoading(false);
       }
     };
+
     fetchData();
-  }, [toast]);
+  }, [month, toast]);
+
   return { kpis, sections, sidebar, loading };
 };
+
 
 export const useInventoryReports = () => {
   const [warehouseData, setWarehouseData] = useState([]);

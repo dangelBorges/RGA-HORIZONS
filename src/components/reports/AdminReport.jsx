@@ -1,12 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useAdminReports } from '@/hooks/useReports';
-import { Building2, Truck, Sparkles, Thermometer, Users, Container, Wrench, Bug, AlertTriangle, ClipboardCheck, GraduationCap, FlaskConical, Palette, Beaker, ListTodo } from 'lucide-react';
+import {
+  Building2,
+  Truck,
+  Sparkles,
+  Thermometer,
+  Users,
+  Container,
+  Wrench,
+  Bug,
+  AlertTriangle,
+  ClipboardCheck,
+  GraduationCap,
+  FlaskConical,
+  Palette,
+  Beaker
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-// Icon map
+/* ---------------- ICON MAP ---------------- */
 const iconMap = {
   maintenance_calibration: Wrench,
   vehicle_inspection: Truck,
@@ -22,7 +37,7 @@ const iconMap = {
   raw_material_analysis: FlaskConical
 };
 
-// Translation map
+/* ---------------- TRANSLATIONS ---------------- */
 const TRANSLATION_MAP = {
   maintenance_calibration: 'Registros de Mantenimiento y Calibración',
   vehicle_inspection: 'Registros de Revisión de Vehículos',
@@ -35,7 +50,7 @@ const TRANSLATION_MAP = {
   action_plans: 'Planes de Acción y Acciones Correctivas',
   internal_audits: 'Auditorías Internas (Trazabilidad)',
   training_sessions: 'Charlas y Capacitaciones',
-  raw_material_analysis: 'Análisis de Materia Prima (Importación Entrante)',
+  raw_material_analysis: 'Análisis de Materia Prima',
 
   ok: 'OK',
   warning: 'Alerta',
@@ -45,51 +60,40 @@ const TRANSLATION_MAP = {
   urgent: 'Urgente'
 };
 
-// Status color
+/* ---------------- STATUS COLOR ---------------- */
 const getStatusColor = (status) => {
   if (!status) return 'text-muted-foreground font-normal';
   const s = status.toLowerCase();
-  if (['conforme', 'cumple', 'realizado', 'ok', 'aprobado', 'terminado', 'completado', 'activo'].includes(s)) return 'text-emerald-500 font-bold';
-  if (['pendiente', 'en proceso', 'pending', 'active'].includes(s)) return 'text-amber-500 font-bold';
-  if (['no conforme', 'no aprobado', 'malo', 'roto', 'descontinuado', 'rechazado', 'critical', 'urgent'].includes(s)) return 'text-red-500 font-bold';
+
+  if (['conforme', 'cumple', 'realizado', 'ok', 'aprobado', 'terminado', 'completado', 'activo'].includes(s))
+    return 'text-emerald-500 font-bold';
+
+  if (['pendiente', 'en proceso', 'pending', 'active'].includes(s))
+    return 'text-amber-500 font-bold';
+
+  if (['no conforme', 'rechazado', 'critical', 'urgent'].includes(s))
+    return 'text-red-500 font-bold';
+
   return 'text-foreground font-normal';
 };
 
+/* ================= COMPONENT ================= */
 const AdminReport = ({ developments = [], formulas = [], openActions = [] }) => {
-  const { kpis, sections, sidebar, loading } = useAdminReports();
+  const [selectedMonth, setSelectedMonth] = useState(
+    new Date().toISOString().slice(0, 7) // YYYY-MM
+  );
+
+  const { sections, loading } = useAdminReports({ month: selectedMonth });
 
   const translateText = (key) => TRANSLATION_MAP[key] || key;
 
-  if (loading) {
-    return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-24 bg-muted/50 rounded-xl" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
-            {[1, 2, 3, 4].map(i => <div key={i} className="h-16 bg-muted/30 rounded-lg" />)}
-          </div>
-          <div className="h-96 bg-muted/30 rounded-lg" />
-        </div>
-      </div>
-    );
-  }
-
-  const groupedSidebar = (sidebar || []).reduce((acc, item) => {
-    const categoryKey = item.category || 'misc';
-    if (!acc[categoryKey]) acc[categoryKey] = [];
-    acc[categoryKey].push(item);
-    return acc;
-  }, {});
-
-  const sidebarCategories = Object.keys(groupedSidebar);
-
-  // Helper to render cards como tabla
-  const renderCardTable = (title, icon, headers, rows, headerGradient) => (
+  /* -------- CARD TABLE RENDER -------- */
+  const renderCardTable = (title, Icon, headers, rows, headerGradient) => (
     <Card className="overflow-hidden border-border shadow-sm">
       <div className={`h-1 bg-gradient-to-r ${headerGradient}`} />
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
-          {icon && <icon className="w-5 h-5 text-foreground" />}
+          {Icon && <Icon className="w-5 h-5 text-foreground" />}
           {title}
         </CardTitle>
       </CardHeader>
@@ -97,15 +101,40 @@ const AdminReport = ({ developments = [], formulas = [], openActions = [] }) => 
         {/* Headers */}
         <div className="flex font-semibold text-sm text-muted-foreground border-b border-border/20 px-2 py-1">
           {headers.map((h, i) => (
-            <div key={i} className={h.width || 'flex-1'}>{h.label}</div>
+            <div key={i} className={h.width || 'flex-1'}>
+              {h.label}
+            </div>
           ))}
         </div>
+
         {/* Rows */}
+        {rows.length === 0 && (
+          <div className="px-2 py-3 text-sm text-muted-foreground italic">
+            Sin registros
+          </div>
+        )}
+
         {rows.map((row, idx) => (
-          <div key={idx} className="flex items-center px-2 py-1 border-b border-border/10">
+          <div
+            key={idx}
+            className="flex items-center px-2 py-1 border-b border-border/10 last:border-0"
+          >
             {headers.map((h, i) => (
-              <div key={i} className={cn(h.width || 'flex-1', h.statusKey ? getStatusColor(row[h.statusKey]) : '')}>
-                {h.isColorBox ? <div className="w-6 h-6 rounded" style={{ backgroundColor: row[h.key] }} /> : row[h.key] ?? '—'}
+              <div
+                key={i}
+                className={cn(
+                  h.width || 'flex-1',
+                  h.statusKey ? getStatusColor(row[h.statusKey]) : ''
+                )}
+              >
+                {h.isColorBox ? (
+                  <div
+                    className="w-6 h-6 rounded border"
+                    style={{ backgroundColor: row[h.key] }}
+                  />
+                ) : (
+                  row[h.key] ?? '—'
+                )}
               </div>
             ))}
           </div>
@@ -114,8 +143,27 @@ const AdminReport = ({ developments = [], formulas = [], openActions = [] }) => 
     </Card>
   );
 
+  /* -------- LOADING -------- */
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="h-24 bg-muted/50 rounded-xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-16 bg-muted/30 rounded-lg" />
+            ))}
+          </div>
+          <div className="h-96 bg-muted/30 rounded-lg" />
+        </div>
+      </div>
+    );
+  }
+
+  /* ================= RENDER ================= */
   return (
     <div className="space-y-8">
+      {/* HEADER */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -125,38 +173,53 @@ const AdminReport = ({ developments = [], formulas = [], openActions = [] }) => 
           <div className="w-16 h-16 bg-primary/20 rounded-xl flex items-center justify-center border border-primary/50 shadow-[0_0_15px_rgba(var(--primary),0.3)]">
             <Building2 className="w-8 h-8 text-primary" />
           </div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Reporte de Gestión Administrativa</h1>
-          </div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Reporte de Gestión Administrativa
+          </h1>
         </div>
       </motion.div>
 
+      {/* FILTER */}
+      <div className="flex items-center gap-4">
+        <label className="text-sm text-muted-foreground font-medium">
+          Período:
+        </label>
+        <input
+          type="month"
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          className="border border-border rounded-md px-3 py-1 text-sm bg-background"
+        />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left column - Accordions */}
+        {/* LEFT COLUMN */}
         <div className="lg:col-span-2 space-y-6">
           <Card className="border-border shadow-sm">
             <CardHeader>
               <CardTitle className="text-xl">Detalle Operativo</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <Accordion type="single" collapsible className="w-full">
-                {(sections || []).map(section => {
+              <Accordion type="single" collapsible>
+                {(sections || []).map((section) => {
                   const Icon = iconMap[section.section_key] || Building2;
-                  const translatedTitle = translateText(section.section_key) || section.title;
                   return (
-                    <AccordionItem key={section.id} value={section.id} className="border-b border-border last:border-0 px-6">
+                    <AccordionItem
+                      key={section.id}
+                      value={section.id}
+                      className="border-b border-border last:border-0 px-6"
+                    >
                       <AccordionTrigger className="hover:no-underline group">
                         <div className="flex items-center gap-4 w-full">
                           <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20">
                             <Icon className="w-5 h-5" />
                           </div>
-                          <div className="flex-1 text-left">
-                            <span className="font-semibold text-foreground block">{translatedTitle}</span>
-                          </div>
+                          <span className="font-semibold text-foreground">
+                            {translateText(section.section_key)}
+                          </span>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="pt-4 pb-6 px-4">
-                        {/* Aquí van las tablas por sección si quieres */}
                         <div className="text-sm text-muted-foreground italic">
                           Sin registros para este período
                         </div>
@@ -169,7 +232,7 @@ const AdminReport = ({ developments = [], formulas = [], openActions = [] }) => 
           </Card>
         </div>
 
-        {/* Right column - Cards */}
+        {/* RIGHT COLUMN */}
         <div className="space-y-6">
           {renderCardTable(
             'Desarrollos',
