@@ -1,30 +1,94 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
+import { ADMIN_SECTION_MAP } from '@/config/adminSectionMap';
 
+
+
+/**
+ * ============================
+ * ADMIN REPORTS
+ * TODO lo que se muestra es EVENTO DEL MES
+ * ============================
+ */
+
+
+/* ================================
+   Utils
+================================ */
+const getMonthRange = (month) => {
+  if (!month || !month.includes('-')) {
+    throw new Error('Invalid month format. Expected YYYY-MM');
+  }
+
+  const [year, m] = month.split('-').map(Number);
+
+  const start = new Date(year, m - 1, 1);
+  const end = new Date(year, m, 0);
+
+  return {
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10),
+  };
+};
+
+
+/* ================================
+   Hook
+================================ */
 export const useAdminReports = ({ month } = {}) => {
   const [kpis, setKpis] = useState([]);
   const [sections, setSections] = useState([]);
   const [sidebar, setSidebar] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!month) return;
+    const range = getMonthRange(month);
 
-    const startDate = `${month}-01`;
-    const endDate = new Date(
-      new Date(startDate).getFullYear(),
-      new Date(startDate).getMonth() + 1,
-      0
-    ).toISOString().slice(0, 10);
+    // ⛔ NO ejecutar si el mes es inválido
+    if (!range) return;
 
+    const { startDate, endDate } = range;
+
+    /* =========================
+       Fetch section records
+    ========================= */
+    const fetchSectionRecords = async (sectionKey) => {
+      const config = ADMIN_SECTION_MAP[sectionKey];
+
+      // ⛔ sección inválida o sin tabla real
+      if (!config || !config.table) return [];
+
+      const {
+        table,
+        dateColumn = 'created_at',
+      } = config;
+
+      const { data, error } = await supabase
+        .from(table)
+        .select('*')
+        .gte(dateColumn, startDate)
+        .lte(dateColumn, endDate)
+        .order(dateColumn, { ascending: false });
+
+      if (error) {
+        console.error(`Error loading ${table}:`, error);
+        return [];
+      }
+
+      return data || [];
+    };
+
+    /* =========================
+       Main fetch
+    ========================= */
     const fetchData = async () => {
       try {
         setLoading(true);
 
-        // === KPIs ===
+        /* -------- KPIs -------- */
         const { data: kpisData, error: kpisError } = await supabase
           .from('admin_kpis')
           .select('*')
@@ -33,34 +97,43 @@ export const useAdminReports = ({ month } = {}) => {
 
         if (kpisError) throw kpisError;
 
-        // === SECTIONS ===
-        const { data: sectionsData, error: sectionsError } = await supabase
+        /* -------- Sections meta -------- */
+        const { data: sectionsMeta, error: sectionsError } = await supabase
           .from('admin_sections_v2')
           .select('*')
-          .gte('created_at', startDate)
-          .lte('created_at', endDate)
           .order('sort_order', { ascending: true });
 
         if (sectionsError) throw sectionsError;
 
-        // === SIDEBAR ===
+        /* -------- Sections + records -------- */
+        const sectionsWithRecords = await Promise.all(
+          (sectionsMeta || []).map(async (section) => ({
+            ...section,
+            records: await fetchSectionRecords(section.section_key),
+          }))
+        );
+
+        /* -------- Sidebar -------- */
         const { data: sidebarData, error: sidebarError } = await supabase
           .from('admin_sidebar')
           .select('*')
           .gte('created_at', startDate)
-          .lte('created_at', endDate);
+          .lte('created_at', endDate)
+          .order('created_at', { ascending: false });
 
         if (sidebarError) throw sidebarError;
 
+        /* -------- State -------- */
         setKpis(kpisData || []);
-        setSections(sectionsData || []);
+        setSections(sectionsWithRecords);
         setSidebar(sidebarData || []);
+
       } catch (error) {
         console.error('Error fetching admin reports:', error);
         toast({
           variant: 'destructive',
           title: 'Error',
-          description: 'Failed to load admin reports',
+          description: 'No se pudieron cargar los reportes del mes',
         });
       } finally {
         setLoading(false);
@@ -70,10 +143,22 @@ export const useAdminReports = ({ month } = {}) => {
     fetchData();
   }, [month, toast]);
 
-  return { kpis, sections, sidebar, loading };
+  return {
+    kpis,
+    sections,
+    sidebar,
+    loading,
+  };
 };
 
 
+
+
+/**
+ * ============================
+ * INVENTORY REPORTS
+ * ============================
+ */
 export const useInventoryReports = () => {
   const [warehouseData, setWarehouseData] = useState([]);
   const [transitData, setTransitData] = useState([]);
@@ -85,93 +170,77 @@ export const useInventoryReports = () => {
     const fetchData = async () => {
       try {
         // === WAREHOUSE ===
-        const { data: warehouse, error: warehouseError } =
-          await supabase
-            .from("reports_warehouse")
-            .select("*")
-            .order("last_updated", { ascending: false });
+        const { data: warehouse, error: warehouseError } = await supabase
+          .from('reports_warehouse')
+          .select('*')
+          .order('last_updated', { ascending: false });
 
         if (warehouseError) throw warehouseError;
 
-        // 🔥 NORMALIZAR NOMBRES AQUÍ (sin romper nada)
         const warehouseParsed = (warehouse || []).map(row => ({
           ...row,
-          codigo: row.articulo,                     // A
-          stock_kilos: parseFloat(row.cantidad),    // B
-          consumo_promedio: parseFloat(row.consumo_3m), // C
+          codigo: row.articulo,
+          stock_kilos: parseFloat(row.cantidad),
+          consumo_promedio: parseFloat(row.consumo_3m),
         }));
 
-        // === TRANSIT === (sin cambios)
-        const { data: transitRaw, error: transitError } =
-          await supabase
-            .from("reports_transit")
-            .select("*");
+        // === TRANSIT ===
+        const { data: transitRaw, error: transitError } = await supabase
+          .from('reports_transit')
+          .select('*');
 
         if (transitError) throw transitError;
 
-        const expandTransitRows = () => {
-          const all = [];
+        const transitParsed = [];
+        transitRaw.forEach(row => {
+          for (let i = 1; i <= 6; i++) {
+            const oc = row[`oc${i}`];
+            const cantidad = row[`cantidad${i}`];
+            const eta = row[`eta${i}`];
+            const origen = row[`origen${i}`];
 
-          transitRaw.forEach(row => {
-            for (let i = 1; i <= 6; i++) {
-              const oc = row[`oc${i}`];
-              const cantidad = row[`cantidad${i}`];
-              const eta = row[`eta${i}`];
-              const origen = row[`origen${i}`];
-
-              if (oc && cantidad) {
-                all.push({
-                  id: `${row.id}-${i}`,
-                  oc_number: oc,
-                  articulo: row.mp,
-                  descripcion: row.descripcion,
-                  cantidad_kilos: parseFloat(cantidad),
-                  eta,
-                  origen,
-                  status: "En tránsito"
-                });
-              }
+            if (oc && cantidad) {
+              transitParsed.push({
+                id: `${row.id}-${i}`,
+                oc_number: oc,
+                articulo: row.mp,
+                descripcion: row.descripcion,
+                cantidad_kilos: parseFloat(cantidad),
+                eta,
+                origen,
+                status: 'En tránsito',
+              });
             }
-          });
+          }
+        });
 
-          return all;
-        };
-
-        const transitParsed = expandTransitRows();
-
-        // Guardar datos ya normalizados
         setWarehouseData(warehouseParsed);
         setTransitData(transitParsed);
 
-        // === INVENTORY TOTAL (from reports_inventory_total) ===
-        try {
-          const { data: invTotalRaw, error: invTotalError } = await supabase
-            .from('reports_inventory_total')
-            .select('*');
+        // === INVENTORY TOTAL ===
+        const { data: invTotalRaw } = await supabase
+          .from('reports_inventory_total')
+          .select('*');
 
-          if (invTotalError) throw invTotalError;
+        const invTotalParsed = (invTotalRaw || []).map(row => ({
+          mp: row.mp || row.articulo || row.codigo || '',
+          descripcion: row.descripcion || row.nombre || '',
+          total: Number(
+            row.total ??
+            row.total_stock ??
+            row.total_kilos ??
+            row.cantidad ??
+            0
+          ),
+        }));
 
-          // Normalize fields to expected shape: { mp, descripcion, total }
-          const invTotalParsed = (invTotalRaw || []).map(row => {
-            const mp = row.mp || row.articulo || row.codigo || '';
-            const descripcion = row.descripcion || row.description || row.nombre || '';
-            const total = Number(row.total ?? row.total_stock ?? row.total_kilos ?? row.cantidad_total ?? row.cantidad ?? 0) || 0;
-            return { mp, descripcion, total, raw: row };
-          });
-
-          setInventoryTotal(invTotalParsed);
-        } catch (err) {
-          console.error('Error fetching reports_inventory_total:', err);
-          // don't throw, continue with other data
-          setInventoryTotal([]);
-        }
-
+        setInventoryTotal(invTotalParsed);
       } catch (error) {
-        console.error("Error fetching inventory reports:", error);
+        console.error('Error fetching inventory reports:', error);
         toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to load inventory reports",
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to load inventory reports',
         });
       } finally {
         setLoading(false);
@@ -184,10 +253,11 @@ export const useInventoryReports = () => {
   return { warehouseData, transitData, inventoryTotal, loading };
 };
 
-
-
-
-
+/**
+ * ============================
+ * PRODUCTION REPORTS
+ * ============================
+ */
 export const useProductionReports = () => {
   const [productionRecords, setProductionRecords] = useState([]);
   const [kpis, setKpis] = useState([]);
@@ -201,14 +271,10 @@ export const useProductionReports = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // --- PRODUCTION RECORDS FETCHING ---
-        // Implementation: Recursive pagination to bypass Supabase default row limit (usually 1000).
-        // We fetch in chunks of 1000 until no more data is returned.
-
         let allRecords = [];
-        let hasMore = true;
         let page = 0;
         const BATCH_SIZE = 1000;
+        let hasMore = true;
 
         while (hasMore) {
           const { data, error } = await supabase
@@ -218,15 +284,10 @@ export const useProductionReports = () => {
 
           if (error) throw error;
 
-          if (data && data.length > 0) {
+          if (data?.length) {
             allRecords = allRecords.concat(data);
-
-            // If the received data is smaller than the batch size, we've reached the end.
-            if (data.length < BATCH_SIZE) {
-              hasMore = false;
-            } else {
-              page++;
-            }
+            if (data.length < BATCH_SIZE) hasMore = false;
+            else page++;
           } else {
             hasMore = false;
           }
@@ -234,47 +295,42 @@ export const useProductionReports = () => {
 
         setProductionRecords(allRecords);
 
-
-        // --- STATIC / SUMMARY DATA ---
-        // These tables are small enough to fetch in a single call.
-        const { data: kpisData } = await supabase.from('production_overview_kpis').select('*');
+        const { data: kpisData } = await supabase
+          .from('production_overview_kpis')
+          .select('*');
         setKpis(kpisData || []);
 
-        const { data: attData } = await supabase.from('production_attendance_stats').select('*');
+        const { data: attData } = await supabase
+          .from('production_attendance_stats')
+          .select('*');
         setAttendanceStats(attData || []);
 
-        const { data: vacData } = await supabase.from('production_vacation_list').select('*');
+        const { data: vacData } = await supabase
+          .from('production_vacation_list')
+          .select('*');
         setVacationList(vacData || []);
 
-        const { data: plantsData } = await supabase.from('production_plants').select('*');
+        const { data: plantsData } = await supabase
+          .from('production_plants')
+          .select('*');
         setPlantsMapData(plantsData || []);
-
       } catch (error) {
         console.error('Error fetching production reports:', error);
         toast({
           variant: 'destructive',
           title: 'Error',
-          description: 'Failed to load production reports. Please try again.',
+          description: 'Failed to load production reports',
         });
       } finally {
         setLoading(false);
       }
 
-      // --- TOP PRODUCTS (VIEW) ---
-      const { data: topProductsData, error: topProductsError } =
-        await supabase
-          .from('vw_prod_top_products')
-          .select('*');
+      const { data: topProductsData } = await supabase
+        .from('vw_prod_top_products')
+        .select('*');
 
-      if (topProductsError) {
-        console.error('Error fetching top products:', topProductsError);
-      } else {
-        setTopProducts(topProductsData || []);
-      }
-
+      setTopProducts(topProductsData || []);
     };
-
-
 
     fetchData();
   }, [toast]);
@@ -286,6 +342,6 @@ export const useProductionReports = () => {
     vacationList,
     plantsMapData,
     topProducts,
-    loading
+    loading,
   };
 };
