@@ -219,11 +219,28 @@ const AdminReport = ({ developments = [], formulas = [], openActions = [] }) => 
                           </span>
                         </div>
                       </AccordionTrigger>
-                      <AccordionContent className="pt-4 pb-6 px-4">
-                        <div className="text-sm text-muted-foreground italic">
-                          Sin registros para este período
-                        </div>
+                      <AccordionContent className="pt-4 pb-6 px-4 space-y-2">
+                        {section.records && section.records.length > 0 ? (
+                          section.records.map((record, idx) => (
+                            <div
+                              key={idx}
+                              className="flex justify-between text-sm border-b border-border/10 pb-1"
+                            >
+                              <span className="text-foreground">
+                                {record.actividad || record.nombre || record.descripcion || 'Registro'}
+                              </span>
+                              <span className={getStatusColor(record.estado)}>
+                                {record.estado || '—'}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-sm text-muted-foreground italic">
+                            Sin registros para este período
+                          </div>
+                        )}
                       </AccordionContent>
+
                     </AccordionItem>
                   );
                 })}
@@ -276,4 +293,7 @@ const AdminReport = ({ developments = [], formulas = [], openActions = [] }) => 
   );
 };
 
+
+
 export default AdminReport;
+
