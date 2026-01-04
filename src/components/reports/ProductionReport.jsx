@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useProductionReports } from '@/hooks/useReports';
-import  TopRawMaterialsChart  from '@/components/reports/production/TopRawMaterialsChart';
+import TopRawMaterialsChart from '@/components/reports/production/TopRawMaterialsChart';
 import ProductionFilters from '@/components/ProductionFilters';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -71,6 +71,15 @@ const ProductionReport = () => {
     dateTo: ''
   });
   const [filtersInitialized, setFiltersInitialized] = useState(false);
+
+  // ---------------------------
+  // HISTORICAL PRODUCTION FILTERS
+  // ---------------------------
+  const [historicalFilters, setHistoricalFilters] = useState({
+    year: 'all',
+    month: 'all',
+    client: 'all',
+  });
 
   // Safe getters (case-insensitive-ish)
   const getVal = (r = {}, key) => r?.[key] ?? r?.[key.charAt(0).toUpperCase() + key.slice(1)] ?? 0;
@@ -227,6 +236,65 @@ const ProductionReport = () => {
     return Object.keys(grouped).map(k => ({ name: k, value: grouped[k] })).sort((a, b) => b.value - a.value).slice(0, 8);
   }, [filteredRecords]);
 
+  // Available clients (from records)
+  const availableClients = useMemo(() => {
+    const set = new Set();
+    productionRecords.forEach(r => {
+      set.add(resolveClientName(r));
+    });
+    return Array.from(set).sort();
+  }, [productionRecords]);
+
+  // Historical filtered records
+  const historicalFilteredRecords = useMemo(() => {
+    return productionRecords.filter(r => {
+      const dateStr = getStr(r, 'fecha');
+      if (!dateStr) return false;
+
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return false;
+
+      if (
+        historicalFilters.year !== 'all' &&
+        String(d.getFullYear()) !== historicalFilters.year
+      ) return false;
+
+      if (
+        historicalFilters.month !== 'all' &&
+        String(d.getMonth()) !== historicalFilters.month
+      ) return false;
+
+      if (
+        historicalFilters.client !== 'all' &&
+        resolveClientName(r) !== historicalFilters.client
+      ) return false;
+
+      return true;
+    });
+  }, [productionRecords, historicalFilters]);
+
+  // Density data (grouped by YYYY-MM)
+  const historicalDensityData = useMemo(() => {
+    const grouped = {};
+
+    historicalFilteredRecords.forEach(r => {
+      const d = new Date(getStr(r, 'fecha'));
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+      const val =
+        Number(getVal(r, 'completado')) ||
+        Number(getVal(r, 'completado real')) ||
+        0;
+
+      grouped[key] = (grouped[key] || 0) + val;
+    });
+
+    return Object.entries(grouped)
+      .map(([period, total]) => ({ period, total }))
+      .sort((a, b) => a.period.localeCompare(b.period));
+  }, [historicalFilteredRecords]);
+
+
   // Helper constants
   const totalProductionVal = dynamicKPIs.find(k => k.label === 'Producción Total')?.value || 0;
   const totalPlannedForEfficiency = filteredRecords.reduce((acc, r) => acc + (Number(getVal(r, 'planificado')) || Number(getVal(r, 'planificado real')) || 0), 0);
@@ -265,6 +333,8 @@ const ProductionReport = () => {
   // Metrics shown in executive RRHH card
   const totalProduction = totalProductionVal;
   const efficiency = `${Math.round(efficiencyVal)}%`;
+
+
 
   // ---------------------------
   // RENDER / LOADING
@@ -428,7 +498,7 @@ const ProductionReport = () => {
         {/* ================= NUEVAS SECCIONES ================= */}
 
         {/* ================= ANÁLISIS DE DEMANDA Y CONSUMO ================= */}
-        <section className="mt-12">
+        <section className="mt-12 bg-muted/40 border border-border rounded-xl p-6">
           <Accordion type="single" collapsible>
             <AccordionItem value="demand-consumption">
               <AccordionTrigger className="text-xl font-bold">
@@ -483,18 +553,7 @@ const ProductionReport = () => {
                     </CardContent>
                   </Card>
 
-                  {/* Materia prima (placeholder por ahora) */}
-                  <Card className="bg-card border-border shadow-lg">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm uppercase tracking-wider text-emerald-400">
-                        Materia prima más consumida
-                      </CardTitle>
-                    </CardHeader>
-
-                    <CardContent className="h-[320px] flex items-center justify-center text-muted-foreground">
-                      Datos pendientes desde SAP
-                    </CardContent>
-                  </Card>
+                  <TopRawMaterialsChart period="2026-01" />
 
                 </div>
               </AccordionContent>
@@ -504,9 +563,121 @@ const ProductionReport = () => {
 
 
 
-        <section className="h-[480px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
-          <span className="text-xl font-bold">Producción histórica</span>
+        <section className="border border-border rounded-xl bg-muted/40">
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="historical-production" className="border-none">
+
+              {/* PRODUCCION HISTORICA */}
+              <AccordionTrigger className="px-6 py-4 text-lg font-semibold">
+                Producción histórica
+              </AccordionTrigger>
+
+              {/* CONTENIDO */}
+              <AccordionContent className="px-6 pb-6 pt-4">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                  {/* ================= LEFT: FILTROS ================= */}
+                  <div className="lg:col-span-3 space-y-4">
+
+                    <h4 className="text-xs font-semibold uppercase text-muted-foreground">
+                      Filtros
+                    </h4>
+
+                    {/* Año */}
+                    <select
+                      className="w-full border rounded-md px-3 py-2 bg-background"
+                      value={historicalFilters.year}
+                      onChange={e =>
+                        setHistoricalFilters(f => ({ ...f, year: e.target.value }))
+                      }
+                    >
+                      <option value="all">Todos los años</option>
+                      {availableYears.map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+
+                    {/* Mes */}
+                    <select
+                      className="w-full border rounded-md px-3 py-2 bg-background"
+                      value={historicalFilters.month}
+                      onChange={e =>
+                        setHistoricalFilters(f => ({ ...f, month: e.target.value }))
+                      }
+                    >
+                      <option value="all">Todos los meses</option>
+                      {Array.from({ length: 12 }).map((_, i) => (
+                        <option key={i} value={String(i)}>
+                          {new Date(2000, i).toLocaleString('es-CL', { month: 'long' })}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* Cliente */}
+                    <select
+                      className="w-full border rounded-md px-3 py-2 bg-background"
+                      value={historicalFilters.client}
+                      onChange={e =>
+                        setHistoricalFilters(f => ({ ...f, client: e.target.value }))
+                      }
+                    >
+                      <option value="all">Todos los clientes</option>
+                      {availableClients.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* ================= RIGHT: GRÁFICO ================= */}
+                  <div className="lg:col-span-9">
+                    <Card className="bg-card border-border shadow-lg h-[420px]">
+                      <CardHeader>
+                        <CardTitle className="text-sm uppercase tracking-wider text-indigo-400">
+                          Producción histórica (densidad)
+                        </CardTitle>
+                      </CardHeader>
+
+                      <CardContent className="h-full">
+                        {historicalDensityData.length > 0 ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={historicalDensityData}>
+                              <defs>
+                                <linearGradient id="histColor" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.6} />
+                                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0.05} />
+                                </linearGradient>
+                              </defs>
+
+                              <CartesianGrid strokeDasharray="3 3" opacity={0.15} vertical={false} />
+                              <XAxis dataKey="period" />
+                              <YAxis tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                              <Tooltip formatter={v => `${Number(v).toLocaleString()} kg`} />
+
+                              <Area
+                                type="monotone"
+                                dataKey="total"
+                                stroke="#6366f1"
+                                fill="url(#histColor)"
+                                strokeWidth={2}
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="h-full flex items-center justify-center text-muted-foreground">
+                            No hay datos para los filtros seleccionados
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                </div>
+              </AccordionContent>
+
+            </AccordionItem>
+          </Accordion>
         </section>
+
 
         <section className="h-[420px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
           <span className="text-xl font-bold">Producción por planta</span>
