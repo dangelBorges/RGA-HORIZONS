@@ -150,7 +150,7 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
           <div>
             <div className="flex items-center gap-2 mb-2 text-primary">
               <TrendingUp className="w-5 h-5" />
-              <h3 className="font-bold text-lg text-primary">Trayectoria por planta</h3>
+              <h3 className="font-bold text-lg text-primary">Trayectoria por cliente</h3>
             </div>
             <p className="text-sm text-muted-foreground">
               Visualiza la evolución de producción histórica. Filtra para detallar la vista.

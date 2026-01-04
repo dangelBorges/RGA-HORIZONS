@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useProductionReports } from '@/hooks/useReports';
+import  TopRawMaterialsChart  from '@/components/reports/production/TopRawMaterialsChart';
 import ProductionFilters from '@/components/ProductionFilters';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -23,6 +24,13 @@ import {
 import { motion } from 'framer-motion';
 import ProductionTrajectory from '@/components/reports/ProductionTrajectory';
 import ProductionReportLayout from '@/components/reports/ProductionReportLayout';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+
 
 
 // --- TRANSLATION/MAPPING CONSTANTS ---
@@ -351,8 +359,8 @@ const ProductionReport = () => {
             <div className="lg:col-span-6 h-[500px]">
               <Card className="h-full bg-card border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)] flex flex-col">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-[#06b6d4] text-lg font-bold tracking-wide">Producción por Planta</CardTitle>
-                  <CardDescription className="text-slate-400 text-xs">Total completado agrupado por planta del holding</CardDescription>
+                  <CardTitle className="text-[#06b6d4] text-lg font-bold tracking-wide">Total completado agrupado por cliente</CardTitle>
+                  <CardDescription className="text-slate-400 text-xs">Total completado agrupado por cliente de GP Chile</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 min-h-0 pt-4">
                   {productionByPlant.length > 0 ? (
@@ -417,80 +425,83 @@ const ProductionReport = () => {
 
 
 
-        {/* ================= NUEVAS SECCIONES ================= 
+        {/* ================= NUEVAS SECCIONES ================= */}
 
-        {/* ================= PRODUCTOS MÁS DEMANDADOS ================= 
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Factory className="w-5 h-5 text-indigo-500" />
-            <h3 className="text-xl font-bold tracking-tight">
-              Productos más demandados
-            </h3>
-          </div>
+        {/* ================= ANÁLISIS DE DEMANDA Y CONSUMO ================= */}
+        <section className="mt-12">
+          <Accordion type="single" collapsible>
+            <AccordionItem value="demand-consumption">
+              <AccordionTrigger className="text-xl font-bold">
+                Análisis de Demanda y Consumo
+              </AccordionTrigger>
 
-          <Card className="bg-card border-border shadow-lg">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm uppercase tracking-wider text-indigo-400">
-                Top productos por volumen producido
-              </CardTitle>
-            </CardHeader>
+              <AccordionContent>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
 
-            <CardContent className="h-[380px]">
-              {topProducts.length > 0 ? (
-                <ResponsiveContainer width="100%" height={360}>
-                  <BarChart
-                    data={topProducts}
-                    layout="vertical"
-                    margin={{ top: 10, right: 40, left: 40, bottom: 10 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} opacity={0.2} />
+                  {/* Productos más demandados */}
+                  <Card className="bg-card border-border shadow-lg">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm uppercase tracking-wider text-indigo-400">
+                        Top productos por volumen producido
+                      </CardTitle>
+                    </CardHeader>
 
-                    <XAxis
-                      type="number"
-                      tick={{ fill: '#475569', fontSize: 11 }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
+                    <CardContent className="h-[320px]">
+                      {topProducts.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={topProducts}
+                            layout="vertical"
+                            margin={{ top: 10, right: 40, left: 40, bottom: 10 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} opacity={0.2} />
+                            <XAxis type="number" tick={{ fill: '#475569', fontSize: 11 }} axisLine={false} tickLine={false} />
+                            <YAxis
+                              type="category"
+                              dataKey="producto"
+                              width={200}
+                              tick={{ fill: '#0f172a', fontSize: 12, fontWeight: 500 }}
+                              axisLine={false}
+                              tickLine={false}
+                            />
+                            <Tooltip
+                              formatter={(v) => [`${Number(v).toLocaleString()} kg`, 'Volumen']}
+                              contentStyle={{
+                                backgroundColor: '#ffffff',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '8px'
+                              }}
+                            />
+                            <Bar dataKey="total_kg" fill="#6366f1" radius={[0, 6, 6, 0]} barSize={26} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-muted-foreground">
+                          Sin datos de productos
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
 
-                    <YAxis
-                      type="category"
-                      dataKey="producto"
-                      width={240}
-                      tick={{
-                        fill: '#0f172a',
-                        fontSize: 12,
-                        fontWeight: 500
-                      }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
+                  {/* Materia prima (placeholder por ahora) */}
+                  <Card className="bg-card border-border shadow-lg">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm uppercase tracking-wider text-emerald-400">
+                        Materia prima más consumida
+                      </CardTitle>
+                    </CardHeader>
 
-                    <Tooltip
-                      formatter={(v) => [`${Number(v).toLocaleString()} kg`, 'Volumen']}
-                      contentStyle={{
-                        backgroundColor: '#ffffff',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px'
-                      }}
-                    />
+                    <CardContent className="h-[320px] flex items-center justify-center text-muted-foreground">
+                      Datos pendientes desde SAP
+                    </CardContent>
+                  </Card>
 
-                    <Bar
-                      dataKey="total_kg"
-                      fill="#6366f1"
-                      radius={[0, 6, 6, 0]}
-                      barSize={28}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-
-              ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground">
-                  Sin datos de productos
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </section>
+
 
 
         <section className="h-[480px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
@@ -522,7 +533,7 @@ const ProductionReport = () => {
         <section className="h-[480px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
           <span className="text-xl font-bold">Comparativo interanual</span>
         </section>
-*/}
+
 
         {/* SECTION: ASISTENCIA / RRHH (layout basado en imagen) */}
         <section className="space-y-6 pt-6 border-t border-border/50">
