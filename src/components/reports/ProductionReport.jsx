@@ -81,6 +81,9 @@ const ProductionReport = () => {
     client: 'all',
   });
 
+
+
+
   // Safe getters (case-insensitive-ish)
   const getVal = (r = {}, key) => r?.[key] ?? r?.[key.charAt(0).toUpperCase() + key.slice(1)] ?? 0;
   const getStr = (r = {}, key) => {
@@ -133,6 +136,16 @@ const ProductionReport = () => {
     });
     return Array.from(setYears).sort((a, b) => b - a);
   }, [productionRecords]);
+
+  const [clientAnalyticsYear, setClientAnalyticsYear] = useState('all');
+
+  const clientAnalyticsYears = availableYears;
+  const selectedYear = clientAnalyticsYear;
+  const previousYears =
+    selectedYear === 'all'
+      ? []
+      : availableYears.filter(y => y < selectedYear);
+
 
   // Filtering logic
   const filteredRecords = useMemo(() => {
@@ -295,6 +308,8 @@ const ProductionReport = () => {
   }, [historicalFilteredRecords]);
 
 
+
+
   // Helper constants
   const totalProductionVal = dynamicKPIs.find(k => k.label === 'Producción Total')?.value || 0;
   const totalPlannedForEfficiency = filteredRecords.reduce((acc, r) => acc + (Number(getVal(r, 'planificado')) || Number(getVal(r, 'planificado real')) || 0), 0);
@@ -329,6 +344,111 @@ const ProductionReport = () => {
     { id: 'v4', employee_name: 'Benjamín Pino', days_count: 1 },
     { id: 'v5', employee_name: 'Antonio Pérez', days_count: 5 }
   ]), []);
+
+  const productionByClientYear = useMemo(() => {
+    const map = {};
+
+    productionRecords.forEach(r => {
+      const dateStr = getStr(r, 'fecha');
+      if (!dateStr) return;
+
+      const d = new Date(dateStr);
+      if (isNaN(d)) return;
+
+      const year = String(d.getFullYear());
+      const client = resolveClientName(r);
+      const val =
+        Number(getVal(r, 'completado')) ||
+        Number(getVal(r, 'completado real')) ||
+        0;
+
+      if (!map[client]) map[client] = {};
+      map[client][year] = (map[client][year] || 0) + val;
+    });
+
+    return map;
+  }, [productionRecords]);
+
+  const clientsWithIncrease = useMemo(() => {
+    if (selectedYear === 'all') return [];
+
+    return Object.entries(productionByClientYear)
+      .map(([client, years]) => {
+        const current = years[selectedYear] || 0;
+        const pastValues = previousYears.map(y => years[y] || 0);
+        const pastAvg =
+          pastValues.length > 0
+            ? pastValues.reduce((a, b) => a + b, 0) / pastValues.length
+            : 0;
+
+        return {
+          client,
+          diff: current - pastAvg,
+          current,
+          pastAvg
+        };
+      })
+      .filter(r => r.diff > 0)
+      .sort((a, b) => b.diff - a.diff);
+  }, [productionByClientYear, selectedYear, previousYears]);
+
+  const clientsWithDecrease = useMemo(() => {
+    if (selectedYear === 'all') return [];
+
+    return Object.entries(productionByClientYear)
+      .map(([client, years]) => {
+        const current = years[selectedYear] || 0;
+        const pastValues = previousYears.map(y => years[y] || 0);
+        const pastAvg =
+          pastValues.length > 0
+            ? pastValues.reduce((a, b) => a + b, 0) / pastValues.length
+            : 0;
+
+        return {
+          client,
+          diff: current - pastAvg,
+          current,
+          pastAvg
+        };
+      })
+      .filter(r => r.diff < 0)
+      .sort((a, b) => a.diff - b.diff);
+  }, [productionByClientYear, selectedYear, previousYears]);
+
+
+  const newClients = useMemo(() => {
+    if (selectedYear === 'all') return [];
+
+    return Object.entries(productionByClientYear)
+      .filter(([_, years]) =>
+        years[selectedYear] &&
+        previousYears.every(y => !years[y])
+      )
+      .map(([client, years]) => ({
+        client,
+        volume: years[selectedYear]
+      }))
+      .sort((a, b) => b.volume - a.volume);
+  }, [productionByClientYear, selectedYear, previousYears]);
+
+
+  const lostClients = useMemo(() => {
+    if (selectedYear === 'all') return [];
+
+    return Object.entries(productionByClientYear)
+      .filter(([_, years]) =>
+        !years[selectedYear] &&
+        previousYears.some(y => years[y])
+      )
+      .map(([client, years]) => ({
+        client,
+        lastYearVolume: Math.max(
+          ...previousYears.map(y => years[y] || 0)
+        )
+      }))
+      .sort((a, b) => b.lastYearVolume - a.lastYearVolume);
+  }, [productionByClientYear, selectedYear, previousYears]);
+
 
   // Metrics shown in executive RRHH card
   const totalProduction = totalProductionVal;
@@ -496,9 +616,8 @@ const ProductionReport = () => {
 
 
         {/* ================= NUEVAS SECCIONES ================= */}
-
         {/* ================= ANÁLISIS DE DEMANDA Y CONSUMO ================= */}
-        <section className="mt-12 bg-muted/40 border border-border rounded-xl p-6">
+        <section className="mt-12  border border-border rounded-xl p-6">
           <Accordion type="single" collapsible>
             <AccordionItem value="demand-consumption">
               <AccordionTrigger className="text-xl font-bold">
@@ -506,9 +625,47 @@ const ProductionReport = () => {
               </AccordionTrigger>
 
               <AccordionContent>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+                {/* FILTROS VISIBLES (REUTILIZA filters EXISTENTE) */}
+                <div className="flex items-center gap-4 mb-6 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">Año</span>
+                    <select
+                      className="border rounded-md px-3 py-2 bg-background text-sm"
+                      value={filters.year}
+                      onChange={(e) =>
+                        setFilters((f) => ({ ...f, year: e.target.value }))
+                      }
+                    >
+                      <option value="all">Todos</option>
+                      {availableYears.map((y) => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                  {/* Productos más demandados */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">Mes</span>
+                    <select
+                      className="border rounded-md px-3 py-2 bg-background text-sm"
+                      value={filters.month}
+                      onChange={(e) =>
+                        setFilters((f) => ({ ...f, month: e.target.value }))
+                      }
+                    >
+                      <option value="all">Todos</option>
+                      {Array.from({ length: 12 }).map((_, i) => (
+                        <option key={i} value={String(i)}>
+                          {new Date(2000, i).toLocaleString('es-CL', { month: 'long' })}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* GRÁFICOS */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                  {/* Top productos */}
                   <Card className="bg-card border-border shadow-lg">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm uppercase tracking-wider text-indigo-400">
@@ -525,24 +682,10 @@ const ProductionReport = () => {
                             margin={{ top: 10, right: 40, left: 40, bottom: 10 }}
                           >
                             <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} opacity={0.2} />
-                            <XAxis type="number" tick={{ fill: '#475569', fontSize: 11 }} axisLine={false} tickLine={false} />
-                            <YAxis
-                              type="category"
-                              dataKey="producto"
-                              width={200}
-                              tick={{ fill: '#0f172a', fontSize: 12, fontWeight: 500 }}
-                              axisLine={false}
-                              tickLine={false}
-                            />
-                            <Tooltip
-                              formatter={(v) => [`${Number(v).toLocaleString()} kg`, 'Volumen']}
-                              contentStyle={{
-                                backgroundColor: '#ffffff',
-                                border: '1px solid #e2e8f0',
-                                borderRadius: '8px'
-                              }}
-                            />
-                            <Bar dataKey="total_kg" fill="#6366f1" radius={[0, 6, 6, 0]} barSize={26} />
+                            <XAxis type="number" />
+                            <YAxis dataKey="producto" type="category" width={200} />
+                            <Tooltip formatter={(v) => `${Number(v).toLocaleString()} kg`} />
+                            <Bar dataKey="total_kg" fill="#6366f1" radius={[0, 6, 6, 0]} />
                           </BarChart>
                         </ResponsiveContainer>
                       ) : (
@@ -553,7 +696,19 @@ const ProductionReport = () => {
                     </CardContent>
                   </Card>
 
-                  <TopRawMaterialsChart period="2026-01" />
+                  {/* Materia prima */}
+                  {filters.year !== 'all' && filters.month !== 'all' ? (
+                    <TopRawMaterialsChart
+                      year={Number(filters.year)}
+                      month={Number(filters.month)}
+                    />
+                  ) : (
+                    <Card className="bg-card border-border shadow-lg flex items-center justify-center text-muted-foreground">
+                      <span className="text-sm">
+                        Selecciona año y mes para ver consumo de materia prima
+                      </span>
+                    </Card>
+                  )}
 
                 </div>
               </AccordionContent>
@@ -563,77 +718,64 @@ const ProductionReport = () => {
 
 
 
-        <section className="border border-border rounded-xl bg-muted/40">
+
+        <section className="mt-12  border border-border rounded-xl p-6">
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="historical-production" className="border-none">
 
               {/* PRODUCCION HISTORICA */}
-              <AccordionTrigger className="px-6 py-4 text-lg font-semibold">
+              <AccordionTrigger className="text-xl font-bold">
                 Producción histórica
               </AccordionTrigger>
+              <div className='flex items-center gap-4 mb-6 flex-wrap'>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-semibold uppercase text-muted-foreground">
+                    Filtros
+                  </h4>
+
+                  {/* Año */}
+                  <select
+                    className="w-full border rounded-md px-3 py-2 bg-background"
+                    value={historicalFilters.year}
+                    onChange={e =>
+                      setHistoricalFilters(f => ({ ...f, year: e.target.value }))
+                    }
+                  >
+                    <option value="all">Todos los años</option>
+                    {availableYears.map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+
+                  {/* Mes */}
+
+
+                  {/* Cliente */}
+                  <select
+                    className="w-full border rounded-md px-3 py-2 bg-background"
+                    value={historicalFilters.client}
+                    onChange={e =>
+                      setHistoricalFilters(f => ({ ...f, client: e.target.value }))
+                    }
+                  >
+                    <option value="all">Todos los clientes</option>
+                    {availableClients.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
               {/* CONTENIDO */}
               <AccordionContent className="px-6 pb-6 pt-4">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-                  {/* ================= LEFT: FILTROS ================= */}
-                  <div className="lg:col-span-3 space-y-4">
-
-                    <h4 className="text-xs font-semibold uppercase text-muted-foreground">
-                      Filtros
-                    </h4>
-
-                    {/* Año */}
-                    <select
-                      className="w-full border rounded-md px-3 py-2 bg-background"
-                      value={historicalFilters.year}
-                      onChange={e =>
-                        setHistoricalFilters(f => ({ ...f, year: e.target.value }))
-                      }
-                    >
-                      <option value="all">Todos los años</option>
-                      {availableYears.map(y => (
-                        <option key={y} value={y}>{y}</option>
-                      ))}
-                    </select>
-
-                    {/* Mes */}
-                    <select
-                      className="w-full border rounded-md px-3 py-2 bg-background"
-                      value={historicalFilters.month}
-                      onChange={e =>
-                        setHistoricalFilters(f => ({ ...f, month: e.target.value }))
-                      }
-                    >
-                      <option value="all">Todos los meses</option>
-                      {Array.from({ length: 12 }).map((_, i) => (
-                        <option key={i} value={String(i)}>
-                          {new Date(2000, i).toLocaleString('es-CL', { month: 'long' })}
-                        </option>
-                      ))}
-                    </select>
-
-                    {/* Cliente */}
-                    <select
-                      className="w-full border rounded-md px-3 py-2 bg-background"
-                      value={historicalFilters.client}
-                      onChange={e =>
-                        setHistoricalFilters(f => ({ ...f, client: e.target.value }))
-                      }
-                    >
-                      <option value="all">Todos los clientes</option>
-                      {availableClients.map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* ================= RIGHT: GRÁFICO ================= */}
-                  <div className="lg:col-span-9">
+                  
+                  {/* ================= GRÁFICO ================= */}
+                  <div className="lg:col-span-12">
                     <Card className="bg-card border-border shadow-lg h-[420px]">
                       <CardHeader>
                         <CardTitle className="text-sm uppercase tracking-wider text-indigo-400">
-                          Producción histórica (densidad)
+                          Producción histórica (kg)
                         </CardTitle>
                       </CardHeader>
 
@@ -678,28 +820,59 @@ const ProductionReport = () => {
           </Accordion>
         </section>
 
+        <section className="mt-12  border border-border rounded-xl p-6">
+          <Accordion type="single" collapsible>
+            <AccordionItem value="client-analytics">
+              <AccordionTrigger className="text-xl font-bold">
+                Analítica de Clientes
+              </AccordionTrigger>
+              <div className="flex items-center gap-4 mb-6">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Año de análisis
+                </span>
 
-        <section className="h-[420px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
-          <span className="text-xl font-bold">Producción por planta</span>
+                <select
+                  className="border rounded-md px-3 py-2 bg-background"
+                  value={clientAnalyticsYear}
+                  onChange={e => setClientAnalyticsYear(e.target.value)}
+                >
+                  <option value="all">Todos los años</option>
+                  {clientAnalyticsYears.map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+
+
+              <AccordionContent className="pt-6 space-y-6">
+
+                {/* FILA 1 */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="h-[380px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
+                    Incrementos
+                  </div>
+
+                  <div className="h-[380px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
+                    Descensos
+                  </div>
+                </div>
+
+                {/* FILA 2 */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="h-[300px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
+                    Clientes nuevos
+                  </div>
+
+                  <div className="h-[300px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
+                    Clientes perdidos
+                  </div>
+                </div>
+
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </section>
 
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-[380px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
-            Incrementos
-          </div>
-          <div className="h-[380px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
-            Descensos
-          </div>
-        </section>
-
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-[300px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
-            Clientes nuevos
-          </div>
-          <div className="h-[300px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
-            Clientes perdidos
-          </div>
-        </section>
 
         <section className="h-[480px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
           <span className="text-xl font-bold">Comparativo interanual</span>

@@ -12,8 +12,8 @@ import { useRawMaterials } from "@/hooks/useRawMaterials";
 
 const COLORS = "#10b981";
 
-const TopRawMaterialsChart = ({ period }) => {
-    const { data, loading } = useRawMaterials(period);
+const TopRawMaterialsChart = ({ year, month }) => {
+    const { data, loading } = useRawMaterials({ year, month });
 
     return (
         <Card className="bg-card border-border shadow-lg">
@@ -46,7 +46,7 @@ const TopRawMaterialsChart = ({ period }) => {
 
                             <YAxis
                                 type="category"
-                                dataKey="material_nombre"
+                                dataKey="material_name"
                                 width={200}
                                 tick={{
                                     fill: "#0f172a",
