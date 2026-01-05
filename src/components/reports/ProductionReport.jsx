@@ -31,6 +31,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
+import { useClientAnalytics } from "@/hooks/useClientAnalytics";
+import ClientBarChart from "@/components/charts/ClientBarChart";
 
 
 // --- TRANSLATION/MAPPING CONSTANTS ---
@@ -81,6 +83,7 @@ const ProductionReport = () => {
     client: 'all',
   });
 
+  const [topN, setTopN] = useState(10);
 
 
 
@@ -388,9 +391,15 @@ const ProductionReport = () => {
           pastAvg
         };
       })
+
       .filter(r => r.diff > 0)
       .sort((a, b) => b.diff - a.diff);
   }, [productionByClientYear, selectedYear, previousYears]);
+
+  const topClientsWithIncrease = useMemo(
+    () => clientsWithIncrease.slice(0, topN),
+    [clientsWithIncrease, topN]
+  );
 
   const clientsWithDecrease = useMemo(() => {
     if (selectedYear === 'all') return [];
@@ -415,6 +424,12 @@ const ProductionReport = () => {
       .sort((a, b) => a.diff - b.diff);
   }, [productionByClientYear, selectedYear, previousYears]);
 
+  const topClientsWithDecrease = useMemo(
+    () => clientsWithDecrease.slice(0, topN),
+    [clientsWithDecrease, topN]
+  );
+
+
 
   const newClients = useMemo(() => {
     if (selectedYear === 'all') return [];
@@ -430,6 +445,12 @@ const ProductionReport = () => {
       }))
       .sort((a, b) => b.volume - a.volume);
   }, [productionByClientYear, selectedYear, previousYears]);
+
+  const topNewClients = useMemo(
+    () => newClients.slice(0, topN),
+    [newClients, topN]
+  );
+
 
 
   const lostClients = useMemo(() => {
@@ -448,6 +469,12 @@ const ProductionReport = () => {
       }))
       .sort((a, b) => b.lastYearVolume - a.lastYearVolume);
   }, [productionByClientYear, selectedYear, previousYears]);
+
+  const topLostClients = useMemo(
+    () => lostClients.slice(0, topN),
+    [lostClients, topN]
+  );
+
 
 
   // Metrics shown in executive RRHH card
@@ -609,12 +636,6 @@ const ProductionReport = () => {
           </div>
         </section>
 
-
-
-
-
-
-
         {/* ================= NUEVAS SECCIONES ================= */}
         {/* ================= ANÁLISIS DE DEMANDA Y CONSUMO ================= */}
         <section className="mt-12  border border-border rounded-xl p-6">
@@ -747,9 +768,6 @@ const ProductionReport = () => {
                     ))}
                   </select>
 
-                  {/* Mes */}
-
-
                   {/* Cliente */}
                   <select
                     className="w-full border rounded-md px-3 py-2 bg-background"
@@ -769,7 +787,7 @@ const ProductionReport = () => {
               {/* CONTENIDO */}
               <AccordionContent className="px-6 pb-6 pt-4">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                  
+
                   {/* ================= GRÁFICO ================= */}
                   <div className="lg:col-span-12">
                     <Card className="bg-card border-border shadow-lg h-[420px]">
@@ -820,55 +838,124 @@ const ProductionReport = () => {
           </Accordion>
         </section>
 
+
         <section className="mt-12  border border-border rounded-xl p-6">
           <Accordion type="single" collapsible>
             <AccordionItem value="client-analytics">
               <AccordionTrigger className="text-xl font-bold">
                 Analítica de Clientes
               </AccordionTrigger>
-              <div className="flex items-center gap-4 mb-6">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Año de análisis
-                </span>
+              <div className="flex items-center gap-6 mb-6 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Año de análisis
+                  </span>
 
-                <select
-                  className="border rounded-md px-3 py-2 bg-background"
-                  value={clientAnalyticsYear}
-                  onChange={e => setClientAnalyticsYear(e.target.value)}
-                >
-                  <option value="all">Todos los años</option>
-                  {clientAnalyticsYears.map(y => (
-                    <option key={y} value={y}>{y}</option>
-                  ))}
-                </select>
+                  <select
+                    className="border rounded-md px-3 py-2 bg-background"
+                    value={clientAnalyticsYear}
+                    onChange={e => setClientAnalyticsYear(e.target.value)}
+                  >
+                    <option value="all">Todos los años</option>
+                    {clientAnalyticsYears.map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Top
+                  </span>
+
+                  <select
+                    className="border rounded-md px-3 py-2 bg-background"
+                    value={topN}
+                    onChange={e => setTopN(Number(e.target.value))}
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                  </select>
+                </div>
               </div>
+
 
 
               <AccordionContent className="pt-6 space-y-6">
 
-                {/* FILA 1 */}
+                {/* FILA 1: Incrementos / Descensos */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="h-[380px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
-                    Incrementos
-                  </div>
 
-                  <div className="h-[380px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
-                    Descensos
-                  </div>
+                  <Card className="h-[380px] bg-card border-border">
+                    <CardHeader>
+                      <CardTitle className="text-sm uppercase tracking-wider text-emerald-400">
+                        Incremento de demanda por cliente
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-full">
+                      <ClientBarChart 
+                        data={topClientsWithIncrease}
+                        valueKey="diff"
+                        valueLabel="Incremento vs promedio histórico"
+                      />
+                    </CardContent>
+                  </Card>
+
+                  <Card className="h-[380px] bg-card border-border">
+                    <CardHeader>
+                      <CardTitle className="text-sm uppercase tracking-wider text-rose-400">
+                        Disminución de demanda por cliente
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-full">
+                      <ClientBarChart
+                        data={topClientsWithDecrease}
+                        valueKey="diff"
+                        valueLabel="Disminución vs promedio histórico"
+                      />
+                    </CardContent>
+                  </Card>
+
                 </div>
 
-                {/* FILA 2 */}
+                {/* FILA 2: Nuevos / Perdidos */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="h-[300px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
-                    Clientes nuevos
-                  </div>
 
-                  <div className="h-[300px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
-                    Clientes perdidos
-                  </div>
+                  <Card className="h-[300px] bg-card border-border">
+                    <CardHeader>
+                      <CardTitle className="text-sm uppercase tracking-wider text-indigo-400">
+                        Clientes nuevos
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-full">
+                      <ClientBarChart
+                        data={topNewClients}
+                        valueKey="volume"
+                        valueLabel="Demanda primer año"
+                      />
+                    </CardContent>
+                  </Card>
+
+                  <Card className="h-[300px] bg-card border-border">
+                    <CardHeader>
+                      <CardTitle className="text-sm uppercase tracking-wider text-amber-400">
+                        Clientes perdidos
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-full">
+                      <ClientBarChart
+                        data={topLostClients}
+                        valueKey="lastYearVolume"
+                        valueLabel="Última demanda registrada"
+                      />
+                    </CardContent>
+                  </Card>
+
                 </div>
 
               </AccordionContent>
+
             </AccordionItem>
           </Accordion>
         </section>
