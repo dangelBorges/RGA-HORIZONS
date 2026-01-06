@@ -50,6 +50,9 @@ import ProductionTrajectory from "@/components/reports/ProductionTrajectory";
 import TopRawMaterialsChart from "@/components/reports/production/TopRawMaterialsChart";
 import ProductionFilters from "@/components/ProductionFilters";
 import ClientBarChart from "@/components/charts/ClientBarChart";
+import KPIItem from "@/components/reports/ui/KPIItem";
+import ClientRankItem from "@/components/reports/ui/ClientRankItem";
+import ExecutiveSummary from "@/components/reports/ui/ExecutiveSummary";
 
 // Hooks
 import { useProductionReports } from "@/hooks/useReports";
@@ -105,65 +108,7 @@ const resolveClientName = (r = {}) => {
   return rawName || "Sin Cliente";
 };
 
-// --------------------
-// Subcomponentes locales (presentacionales)
-// --------------------
-const KPIItem = ({ kpi }) => (
-  <Card className="h-full bg-card border-cyan-500/20 shadow-lg relative overflow-hidden group">
-    <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
-    <CardHeader className="pb-2">
-      <CardTitle className="text-cyan-400 font-bold uppercase tracking-wider text-sm">
-        {kpi.label}
-      </CardTitle>
-    </CardHeader>
-    <CardContent>
-      <div className="mt-2">
-        <span className="text-4xl lg:text-5xl font-extrabold text-blue-700 tracking-tight">
-          {parseFloat(kpi.value).toLocaleString(undefined, {
-            maximumFractionDigits: 0,
-          })}
-        </span>
-        <div className="text-xl font-bold text-slate-500 mt-1">
-          {kpi.unit?.toUpperCase()}
-        </div>
-      </div>
-      {kpi.subtext && (
-        <p className="text-xs text-slate-400 mt-4 flex items-center gap-1">
-          {kpi.subtext}
-        </p>
-      )}
-    </CardContent>
-  </Card>
-);
-
-const ClientRankItem = ({ client, maxVolume }) => (
-  <div
-    key={client.id}
-    className="flex items-center justify-between mb-3 p-2 rounded-lg bg-white/5 hover:bg-white/10"
-  >
-    <div className="flex items-center gap-3">
-      <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${client.rank <= 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
-      >
-        {client.rank}
-      </div>
-      <div>
-        <p className="text-sm font-medium">{client.client_name}</p>
-        <div className="bg-muted/30 h-1.5 mt-1 rounded-full overflow-hidden w-24">
-          <div
-            className="h-full bg-primary/70 rounded-full"
-            style={{
-              width: `${(client.volume_kilos / (maxVolume || 1)) * 100}%`,
-            }}
-          />
-        </div>
-      </div>
-    </div>
-    <span className="text-sm font-mono text-muted-foreground">
-      {parseInt(client.volume_kilos).toLocaleString()} kg
-    </span>
-  </div>
-);
+// Subcomponents extracted to `src/components/reports/ui` to keep file smaller
 
 // Componente principal del reporte de producción
 const ProductionReport = () => {
@@ -1583,116 +1528,12 @@ const ProductionReport = () => {
             </Card>
 
             {/* RIGHT: Executive RRHH summary */}
-            <Card className="bg-card border-primary/20 overflow-hidden relative">
-              <div className="absolute top-0 right-0 p-3 opacity-20">
-                <FileText className="w-24 h-24 text-primary" />
-              </div>
-              <CardHeader className="relative z-10 pb-4">
-                <CardTitle className="text-lg text-primary flex items-center gap-2">
-                  <Activity className="w-5 h-5" />
-                  Resumen Ejecutivo Mensual
-                </CardTitle>
-                <CardDescription>
-                  Consolidado de KPIs Críticos y Eficiencia
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="relative z-10 space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-background/40 p-3 rounded-lg border border-white/5 backdrop-blur-sm">
-                    <span className="text-xs text-muted-foreground block mb-1">
-                      Total Producción
-                    </span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-xl font-bold text-foreground">
-                        {parseFloat(totalProduction).toLocaleString()}
-                      </span>
-                      <span className="text-xs font-mono text-primary">kg</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-background/40 p-3 rounded-lg border border-white/5 backdrop-blur-sm">
-                    <span className="text-xs text-muted-foreground block mb-1">
-                      Eficiencia Global
-                    </span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-xl font-bold text-emerald-500">
-                        {efficiency}
-                      </span>
-                      <Target className="w-3 h-3 text-emerald-500 ml-1" />
-                    </div>
-                  </div>
-
-                  <div className="bg-background/40 p-3 rounded-lg border border-white/5 backdrop-blur-sm">
-                    <span className="text-xs text-muted-foreground block mb-1">
-                      Reproceso
-                    </span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-xl font-bold text-amber-500">
-                        1.2%
-                      </span>
-                      <AlertTriangle className="w-3 h-3 text-amber-500 ml-1" />
-                    </div>
-                  </div>
-
-                  <div className="bg-background/40 p-3 rounded-lg border border-white/5 backdrop-blur-sm">
-                    <span className="text-xs text-muted-foreground block mb-1">
-                      Ausentismo Total
-                    </span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-xl font-bold text-red-400">
-                        {totalAbsences}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        colaboradores
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Highlights */}
-                <div className="bg-primary/5 rounded-lg p-4 border border-primary/10">
-                  <h4 className="text-xs font-bold uppercase text-primary mb-3">
-                    Highlights del Mes
-                  </h4>
-                  <ul className="space-y-2">
-                    <li className="text-sm flex items-start gap-2 text-muted-foreground">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                      <span>
-                        La producción total superó la meta en un{" "}
-                        <strong>4.5%</strong> gracias a la optimización en
-                        planta Santiago.
-                      </span>
-                    </li>
-                    <li className="text-sm flex items-start gap-2 text-muted-foreground">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
-                      <span>
-                        Se observa un leve aumento en reprocesos (
-                        <strong>+0.3%</strong>) en la línea de envasado
-                        automatizado.
-                      </span>
-                    </li>
-                    <li className="text-sm flex items-start gap-2 text-muted-foreground">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
-                      <span>
-                        Asistencia promedio se mantiene estable en{" "}
-                        <strong>{totalAttendance}%</strong>, con baja incidencia
-                        de licencias médicas.
-                      </span>
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="flex justify-between items-center pt-2">
-                  <span className="text-[10px] text-muted-foreground/50 uppercase">
-                    Última actualización: hace 2 horas
-                  </span>
-                  <button className="text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1 transition-colors">
-                    Ver Reporte Completo <FileText className="w-3 h-3" />
-                  </button>
-                </div>
-              </CardContent>
-            </Card>
+            <ExecutiveSummary
+              totalProduction={totalProduction}
+              efficiency={efficiency}
+              totalAbsences={totalAbsences}
+              totalAttendance={totalAttendance}
+            />
           </div>
         </section>
       </div>
