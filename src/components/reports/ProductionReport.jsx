@@ -34,14 +34,24 @@ import {
 import { useClientAnalytics } from "@/hooks/useClientAnalytics";
 import ClientBarChart from "@/components/charts/ClientBarChart";
 
+// --------------------------------------------------
+// Comentarios (en español):
+// Este componente `ProductionReport` compone múltiples bloques:
+// - Importaciones y constantes de mapeo
+// - Helpers seguros para acceder a campos en registros
+// - Hooks y useMemo para calcular KPIs y series de datos
+// - Renderizado principal con múltiples secciones/tarjetas y gráficos
+// A continuación se documentan los bloques principales en español.
+// --------------------------------------------------
 
-// --- TRANSLATION/MAPPING CONSTANTS ---
+
+// Mapa de traducción simple usado para etiquetas mostradas en UI
 const TRANSLATION_MAP = {
   'producción total': 'Producción Total',
   'enviado a los inplants': 'Enviado a las Plantas Cliente',
 };
 
-// --- CLIENT MAPPING (ejemplo empresarial) ---
+// Mapeo estático de códigos de cliente a nombres legibles
 const CLIENT_MAPPING = {
   'C0010': 'CMPC Osorno',
   'C0005': 'Chilempack',
@@ -52,8 +62,18 @@ const CLIENT_MAPPING = {
   'C0052': 'Til Til'
 };
 
+ // Helpers para obtener valores numéricos/strings de un registro
+ // Intentan varias variantes de nombre de campo y devuelven valor por defecto seguro
+  const getVal = (r = {}, key) => r?.[key] ?? r?.[key.charAt(0).toUpperCase() + key.slice(1)] ?? 0;
+  const getStr = (r = {}, key) => {
+    if (!r) return '';
+    return r?.[key] ?? r?.[key.charAt(0).toUpperCase() + key.slice(1)] ?? '';
+  };
+
+// Traduce textos usando TRANSLATION_MAP, si existe
 const translateText = (key) => TRANSLATION_MAP[key?.toLowerCase()] || key;
 
+// Componente principal del reporte de producción
 const ProductionReport = () => {
   const {
     productionRecords = [],
@@ -64,8 +84,8 @@ const ProductionReport = () => {
   } = useProductionReports();
 
   // ---------------------------
-  // Filters
   // ---------------------------
+  // Estado y control de filtros visibles en UI (año, mes, rango de fechas)
   const [filters, setFilters] = useState({
     year: 'all',
     month: 'all',
@@ -75,26 +95,41 @@ const ProductionReport = () => {
   const [filtersInitialized, setFiltersInitialized] = useState(false);
 
   // ---------------------------
-  // HISTORICAL PRODUCTION FILTERS
   // ---------------------------
+  // Filtros adicionales usados para vistas históricas (cliente, año, mes)
   const [historicalFilters, setHistoricalFilters] = useState({
     year: 'all',
     month: 'all',
     client: 'all',
   });
 
+  // Calcula los años disponibles a partir de los registros de producción
+  const availableYears = useMemo(() => {
+    const setYears = new Set();
+    productionRecords.forEach(r => {
+      const dStr = getStr(r, 'fecha');
+      if (!dStr) return;
+      const d = new Date(dStr);
+      if (!isNaN(d.getTime())) setYears.add(String(d.getFullYear()));
+    });
+    return Array.from(setYears).sort((a, b) => b - a);
+  }, [productionRecords]);
   const [topN, setTopN] = useState(10);
 
+  // Estados para comparación interanual (A vs B)
+  const [compareYearA, setCompareYearA] = useState(
+    availableYears[availableYears.length - 2] || ''
+  );
+  const [compareYearB, setCompareYearB] = useState(
+    availableYears[availableYears.length - 1] || ''
+  );
 
 
-  // Safe getters (case-insensitive-ish)
-  const getVal = (r = {}, key) => r?.[key] ?? r?.[key.charAt(0).toUpperCase() + key.slice(1)] ?? 0;
-  const getStr = (r = {}, key) => {
-    if (!r) return '';
-    return r?.[key] ?? r?.[key.charAt(0).toUpperCase() + key.slice(1)] ?? '';
-  };
 
-  // Resolve client name by code mapping or fallback to 'cliente' field
+  
+  
+  
+  // Intenta resolver por varias claves posibles y luego por campo `cliente`
   const resolveClientName = (r = {}) => {
     const code = r['CveCliente'] || r['cvecliente'] || r['cveCliente'] || r['CVE_CLIENTE'];
     if (code) {
@@ -105,7 +140,7 @@ const ProductionReport = () => {
     return rawName || 'Sin Cliente';
   };
 
-  // Auto-set filters to latest date in data
+  // Busca la fecha máxima en los registros y actualiza filtros iniciales
   useEffect(() => {
     if (!loading && productionRecords && productionRecords.length > 0 && !filtersInitialized) {
       let maxDate = null;
@@ -128,18 +163,9 @@ const ProductionReport = () => {
     }
   }, [loading, productionRecords, filtersInitialized]);
 
-  // Extract available years
-  const availableYears = useMemo(() => {
-    const setYears = new Set();
-    productionRecords.forEach(r => {
-      const dStr = getStr(r, 'fecha');
-      if (!dStr) return;
-      const d = new Date(dStr);
-      if (!isNaN(d.getTime())) setYears.add(String(d.getFullYear()));
-    });
-    return Array.from(setYears).sort((a, b) => b - a);
-  }, [productionRecords]);
+  
 
+  // Estado para la sección de analítica por cliente
   const [clientAnalyticsYear, setClientAnalyticsYear] = useState('all');
 
   const clientAnalyticsYears = availableYears;
@@ -150,7 +176,7 @@ const ProductionReport = () => {
       : availableYears.filter(y => y < selectedYear);
 
 
-  // Filtering logic
+  // Filtra `productionRecords` según `filters` seleccionadas
   const filteredRecords = useMemo(() => {
     if (!productionRecords) return [];
     return productionRecords.filter(record => {
@@ -173,7 +199,7 @@ const ProductionReport = () => {
     });
   }, [productionRecords, filters]);
 
-  // Previous 3 months data for area chart (unchanged)
+  // Agrupa y totaliza producción por mes para los 3 meses anteriores
   const previousPeriodData = useMemo(() => {
     if (!productionRecords || productionRecords.length === 0) return [];
     let anchorDate = new Date();
@@ -209,14 +235,14 @@ const ProductionReport = () => {
     return Object.values(grouped).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
   }, [productionRecords, filters]);
 
-  // Dynamic KPIs
+  // Calcula KPIs dinámicos basados en `filteredRecords` (p.ej. Producción Total)
   const dynamicKPIs = useMemo(() => {
     const totalCompleted = filteredRecords.reduce((acc, r) => acc + (Number(getVal(r, 'completado')) || Number(getVal(r, 'completado real')) || 0), 0);
     if (!productionRecords || productionRecords.length === 0) return initialKpis || [];
     return [{ id: 'k1', label: translateText('Producción Total'), value: totalCompleted, unit: 'kg', trend_up: true, subtext: translateText('Enviado a las Plantas Cliente') }];
   }, [filteredRecords, initialKpis, productionRecords]);
 
-  // Production by plant
+  // Agrupa producción por cliente/plant para mostrar en gráfico
   const productionByPlant = useMemo(() => {
     const grouped = {};
     filteredRecords.forEach(r => {
@@ -227,7 +253,7 @@ const ProductionReport = () => {
     return Object.keys(grouped).map(k => ({ name: k, value: grouped[k] })).sort((a, b) => b.value - a.value);
   }, [filteredRecords]);
 
-  // Top 5 clients
+  // Calcula clientes principales por volumen en el periodo filtrado
   const productionByClient = useMemo(() => {
     const grouped = {};
     filteredRecords.forEach(r => {
@@ -241,18 +267,39 @@ const ProductionReport = () => {
       .map(([name, vol], i) => ({ id: name, rank: i + 1, client_name: name, volume_kilos: vol }));
   }, [filteredRecords]);
 
-  // Production by article
+  // Productos principales filtrados por periodo
+  const topProductsFiltered = useMemo(() => {
+    const grouped = {};
+
+    filteredRecords.forEach(r => {
+      const product = getStr(r, 'Descripcion') || 'Sin producto';
+      const value =
+        Number(getVal(r, 'completado')) ||
+        Number(getVal(r, 'completado real')) ||
+        0;
+
+      grouped[product] = (grouped[product] || 0) + value;
+    });
+
+    return Object.entries(grouped)
+      .map(([producto, total_kg]) => ({ producto, total_kg }))
+      .sort((a, b) => b.total_kg - a.total_kg)
+      .slice(0, 10); // 10 principales (ajustable)
+  }, [filteredRecords]);
+
+
+  // Agrupa por Descripción (artículo) y toma 8 principales
   const productionByArticle = useMemo(() => {
     const grouped = {};
     filteredRecords.forEach(r => {
-      const art = getStr(r, 'articulo') || 'Varios';
+      const art = getStr(r, 'Descripcion') || 'Varios';
       const val = Number(getVal(r, 'completado')) || Number(getVal(r, 'completado real')) || 0;
       grouped[art] = (grouped[art] || 0) + val;
     });
     return Object.keys(grouped).map(k => ({ name: k, value: grouped[k] })).sort((a, b) => b.value - a.value).slice(0, 8);
   }, [filteredRecords]);
 
-  // Available clients (from records)
+  // Extrae todos los clientes únicos para los selectores
   const availableClients = useMemo(() => {
     const set = new Set();
     productionRecords.forEach(r => {
@@ -261,7 +308,7 @@ const ProductionReport = () => {
     return Array.from(set).sort();
   }, [productionRecords]);
 
-  // Historical filtered records
+  // Filtra registros para vistas históricas (historicalFilters)
   const historicalFilteredRecords = useMemo(() => {
     return productionRecords.filter(r => {
       const dateStr = getStr(r, 'fecha');
@@ -289,7 +336,7 @@ const ProductionReport = () => {
     });
   }, [productionRecords, historicalFilters]);
 
-  // Density data (grouped by YYYY-MM)
+  // Genera serie temporal mensual para producción histórica
   const historicalDensityData = useMemo(() => {
     const grouped = {};
 
@@ -310,10 +357,44 @@ const ProductionReport = () => {
       .sort((a, b) => a.period.localeCompare(b.period));
   }, [historicalFilteredRecords]);
 
+  // Compara dos años mes a mes (A vs B)
+  const interannualComparison = useMemo(() => {
+    if (!compareYearA || !compareYearB) return [];
+
+    const base = Array.from({ length: 12 }, (_, i) => ({
+      month: i,
+      label: new Date(2000, i).toLocaleString('es-CL', { month: 'short' }),
+      [compareYearA]: 0,
+      [compareYearB]: 0,
+    }));
+
+    filteredRecords.forEach(r => {
+      const year = Number(getVal(r, 'año'));
+      const month = Number(getVal(r, 'mes'));
+      const value =
+        Number(getVal(r, 'completado')) ||
+        Number(getVal(r, 'completado real')) ||
+        0;
+
+      if (month == null || Number.isNaN(month)) return;
+
+      if (year === Number(compareYearA)) {
+        base[month][compareYearA] += value;
+      }
+
+      if (year === Number(compareYearB)) {
+        base[month][compareYearB] += value;
+      }
+    });
+
+    return base;
+  }, [filteredRecords, compareYearA, compareYearB]);
 
 
 
-  // Helper constants
+
+
+  // Valores auxiliares derivados de KPIs y registros filtrados
   const totalProductionVal = dynamicKPIs.find(k => k.label === 'Producción Total')?.value || 0;
   const totalPlannedForEfficiency = filteredRecords.reduce((acc, r) => acc + (Number(getVal(r, 'planificado')) || Number(getVal(r, 'planificado real')) || 0), 0);
   const totalCompletedForEfficiency = filteredRecords.reduce((acc, r) => acc + (Number(getVal(r, 'completado')) || Number(getVal(r, 'completado real')) || 0), 0);
@@ -321,25 +402,25 @@ const ProductionReport = () => {
 
 
   // ---------------------------
-  // ATTENDANCE / RRHH SECTION
-  // - Uses fallback/mock data if you don't yet have real attendance payload
-  // Replace attendanceStats & vacationList with real data when available
+  // - Bloque con datos de asistencia/ausentismos y lista de vacaciones
+  // - Actualmente usa datos mock como valor por defecto; reemplazar con payload real
   // ---------------------------
   const attendanceStats = useMemo(() => {
-    // Fallback mock (replace with real computation if you have attendance data)
+    // Datos de ejemplo (mock)
     return [
       { category: 'Asistencia', percentage: 92, count: 92, color_hex: '#3b82f6' },
       { category: 'Licencias', percentage: 3, count: 5, color_hex: '#10b981' },
       { category: 'Vacaciones', percentage: 4, count: 6, color_hex: '#f59e0b' },
       { category: 'Injustificadas', percentage: 1, count: 2, color_hex: '#ef4444' }
     ];
-  }, [productionRecords]); // keep dependency so it can be swapped when you feed real data
+  }, [productionRecords]);
 
+  // Preparar datos para gráfico tipo dona
   const pieData = useMemo(() => attendanceStats.map(s => ({ name: s.category, value: s.percentage, count: s.count, color: s.color_hex })), [attendanceStats]);
   const totalAttendance = pieData.find(d => d.name === 'Asistencia')?.value ?? 0;
   const totalAbsences = pieData.filter(d => d.name !== 'Asistencia').reduce((acc, cur) => acc + (cur.count || 0), 0);
 
-  // Example upcoming vacations list (fallback)
+  // Lista de próximas vacaciones (ejemplo / valor por defecto)
   const vacationList = useMemo(() => ([
     { id: 'v1', employee_name: 'Jorge Mena', days_count: 6 },
     { id: 'v2', employee_name: 'Osvaldo Núñez', days_count: 2 },
@@ -348,6 +429,7 @@ const ProductionReport = () => {
     { id: 'v5', employee_name: 'Antonio Pérez', days_count: 5 }
   ]), []);
 
+  // Producción agregada por cliente y por año
   const productionByClientYear = useMemo(() => {
     const map = {};
 
@@ -372,6 +454,7 @@ const ProductionReport = () => {
     return map;
   }, [productionRecords]);
 
+  // Clientes con incremento vs promedio histórico
   const clientsWithIncrease = useMemo(() => {
     if (selectedYear === 'all') return [];
 
@@ -396,11 +479,13 @@ const ProductionReport = () => {
       .sort((a, b) => b.diff - a.diff);
   }, [productionByClientYear, selectedYear, previousYears]);
 
+  // Clientes con mayor incremento (N principales)
   const topClientsWithIncrease = useMemo(
     () => clientsWithIncrease.slice(0, topN),
     [clientsWithIncrease, topN]
   );
 
+  // Clientes con disminución vs promedio histórico
   const clientsWithDecrease = useMemo(() => {
     if (selectedYear === 'all') return [];
 
@@ -424,6 +509,7 @@ const ProductionReport = () => {
       .sort((a, b) => a.diff - b.diff);
   }, [productionByClientYear, selectedYear, previousYears]);
 
+  // Clientes con mayor disminución (N principales)
   const topClientsWithDecrease = useMemo(
     () => clientsWithDecrease.slice(0, topN),
     [clientsWithDecrease, topN]
@@ -431,6 +517,7 @@ const ProductionReport = () => {
 
 
 
+  // Clientes nuevos en el `selectedYear` (sin historial en previousYears)
   const newClients = useMemo(() => {
     if (selectedYear === 'all') return [];
 
@@ -446,6 +533,7 @@ const ProductionReport = () => {
       .sort((a, b) => b.volume - a.volume);
   }, [productionByClientYear, selectedYear, previousYears]);
 
+  // Clientes nuevos (N principales)
   const topNewClients = useMemo(
     () => newClients.slice(0, topN),
     [newClients, topN]
@@ -453,6 +541,7 @@ const ProductionReport = () => {
 
 
 
+  // Clientes perdidos: tenían volumen en años previos pero no en selectedYear
   const lostClients = useMemo(() => {
     if (selectedYear === 'all') return [];
 
@@ -470,6 +559,7 @@ const ProductionReport = () => {
       .sort((a, b) => b.lastYearVolume - a.lastYearVolume);
   }, [productionByClientYear, selectedYear, previousYears]);
 
+  // Clientes perdidos (N principales)
   const topLostClients = useMemo(
     () => lostClients.slice(0, topN),
     [lostClients, topN]
@@ -477,15 +567,14 @@ const ProductionReport = () => {
 
 
 
-  // Metrics shown in executive RRHH card
+  // Valores listos para mostrar en el resumen ejecutivo
   const totalProduction = totalProductionVal;
   const efficiency = `${Math.round(efficiencyVal)}%`;
 
 
 
   // ---------------------------
-  // RENDER / LOADING
-  // ---------------------------
+  // Renderizado condicional mientras `loading` es true
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-pulse">
@@ -496,11 +585,12 @@ const ProductionReport = () => {
     );
   }
 
+  // Render principal del layout del reporte
   return (
     <ProductionReportLayout>
 
       <div className="space-y-6 pb-10">
-        {/* Filters */}
+        {/* Comentario JSX: componente que controla los filtros visibles (año, mes, rango) */}
         <ProductionFilters
           filters={filters}
           onFilterChange={setFilters}
@@ -513,10 +603,10 @@ const ProductionReport = () => {
             <h2 className="text-2xl font-bold tracking-tight">Dashboard de Producción</h2>
           </div>
 
-          {/* MAIN GRID */}
+          
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-            {/* LEFT: KPIs & Trend */}
+            {/* Bloque izquierdo con KPIs dinámicos y tendencia de últimos 3 meses */}
             <div className="lg:col-span-3 flex flex-col gap-6">
               <div className="flex-1 min-h-[180px]">
                 {dynamicKPIs.map(kpi => (
@@ -545,7 +635,7 @@ const ProductionReport = () => {
                       <History className="w-4 h-4" /> Últimos 3 Meses
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="flex-1 min-h-0 pt-0">
+                    <CardContent className="flex-1 min-h-0 pt-0">
                     <div className="h-full w-full min-h-[180px]">
                       {previousPeriodData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
@@ -572,7 +662,7 @@ const ProductionReport = () => {
               </div>
             </div>
 
-            {/* CENTER: Production by Plant */}
+            {/* Gráfico central: total completado agrupado por cliente */}
             <div className="lg:col-span-6 h-[500px]">
               <Card className="h-full bg-card border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)] flex flex-col">
                 <CardHeader className="pb-2">
@@ -597,7 +687,7 @@ const ProductionReport = () => {
               </Card>
             </div>
 
-            {/* RIGHT: Top Clientes (vertical narrow) */}
+            {/* Lista lateral con ranking de clientes por volumen */}
             <div className="lg:col-span-3 h-[500px]">
               <Card className="h-full bg-card border-border shadow-lg">
                 <CardHeader>
@@ -629,7 +719,7 @@ const ProductionReport = () => {
           </div>
         </section>
 
-        {/* SECTION 2: Trajectory */}
+        {/* Componente que muestra la trayectoria/ubicación de producción */}
         <section className="mt-12 block relative">
           <div className="w-full min-h-[520px] relative overflow-hidden">
             <ProductionTrajectory records={productionRecords} clientMapping={CLIENT_MAPPING} />
@@ -647,6 +737,7 @@ const ProductionReport = () => {
 
               <AccordionContent>
                 {/* FILTROS VISIBLES (REUTILIZA filters EXISTENTE) */}
+                {/* Controles de año/mes que reutilizan el estado `filters` del componente */}
                 <div className="flex items-center gap-4 mb-6 flex-wrap">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-muted-foreground">Año</span>
@@ -684,9 +775,12 @@ const ProductionReport = () => {
                 </div>
 
                 {/* GRÁFICOS */}
+                {/* Panel con Top productos y consumo de materia prima */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                   {/* Top productos */}
+                  {/* Gráfico de barras vertical mostrando los productos con mayor volumen */}
+
                   <Card className="bg-card border-border shadow-lg">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm uppercase tracking-wider text-indigo-400">
@@ -698,7 +792,8 @@ const ProductionReport = () => {
                       {topProducts.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart
-                            data={topProducts}
+                            data={topProductsFiltered}
+
                             layout="vertical"
                             margin={{ top: 10, right: 40, left: 40, bottom: 10 }}
                           >
@@ -718,6 +813,7 @@ const ProductionReport = () => {
                   </Card>
 
                   {/* Materia prima */}
+                  {/* Muestra consumo de materias primas si año y mes están seleccionados */}
                   {filters.year !== 'all' && filters.month !== 'all' ? (
                     <TopRawMaterialsChart
                       year={Number(filters.year)}
@@ -745,6 +841,7 @@ const ProductionReport = () => {
             <AccordionItem value="historical-production" className="border-none">
 
               {/* PRODUCCION HISTORICA */}
+              {/* Vista histórica con serie temporal mensual agregada */}
               <AccordionTrigger className="text-xl font-bold">
                 Producción histórica
               </AccordionTrigger>
@@ -785,10 +882,12 @@ const ProductionReport = () => {
               </div>
 
               {/* CONTENIDO */}
+              {/* Contenido del acordeón con gráfico de densidad histórica */}
               <AccordionContent className="px-6 pb-6 pt-4">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
                   {/* ================= GRÁFICO ================= */}
+                  {/* AreaChart que muestra producción histórica por periodo (YYYY-MM) */}
                   <div className="lg:col-span-12">
                     <Card className="bg-card border-border shadow-lg h-[420px]">
                       <CardHeader>
@@ -840,6 +939,7 @@ const ProductionReport = () => {
 
 
         <section className="mt-12  border border-border rounded-xl p-6">
+          {/* Analítica de Clientes: incrementos, nuevos, perdidos, etc. */}
           <Accordion type="single" collapsible>
             <AccordionItem value="client-analytics">
               <AccordionTrigger className="text-xl font-bold">
@@ -894,7 +994,7 @@ const ProductionReport = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="h-full">
-                      <ClientBarChart 
+                      <ClientBarChart
                         data={topClientsWithIncrease}
                         valueKey="diff"
                         valueLabel="Incremento vs promedio histórico"
@@ -961,9 +1061,90 @@ const ProductionReport = () => {
         </section>
 
 
-        <section className="h-[480px] bg-muted/40 border border-border rounded-xl flex items-center justify-center">
-          <span className="text-xl font-bold">Comparativo interanual</span>
+        <section className="mt-12 border border-border rounded-xl p-6">
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+            <h3 className="text-xl font-bold">
+              Comparativo Interanual de Producción
+            </h3>
+
+            {/* Filtros de comparación */}
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Año A
+                </span>
+                <select
+                  className="border rounded-md px-3 py-2 bg-background text-sm"
+                  value={compareYearA}
+                  onChange={(e) => setCompareYearA(e.target.value)}
+                >
+                  {availableYears.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Año B
+                </span>
+                <select
+                  className="border rounded-md px-3 py-2 bg-background text-sm"
+                  value={compareYearB}
+                  onChange={(e) => setCompareYearB(e.target.value)}
+                >
+                  {availableYears.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Gráfico */}
+          <div className="h-[360px]">
+            {interannualComparison.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={interannualComparison}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    opacity={0.2}
+                    vertical={false}
+                  />
+                  <XAxis dataKey="label" />
+                  <YAxis />
+                  <Tooltip
+                    formatter={(v) => `${Number(v).toLocaleString()} kg`}
+                  />
+                  <Legend />
+
+                  <Line
+                    type="monotone"
+                    dataKey={compareYearA}
+                    name={compareYearA}
+                    stroke="#6366f1"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+
+                  <Line
+                    type="monotone"
+                    dataKey={compareYearB}
+                    name={compareYearB}
+                    stroke="#22c55e"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                Selecciona dos años válidos para visualizar el comparativo
+              </div>
+            )}
+          </div>
         </section>
+
 
 
         {/* SECTION: ASISTENCIA / RRHH (layout basado en imagen) */}
@@ -975,7 +1156,7 @@ const ProductionReport = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            {/* LEFT: Donut + Legend + Vacations */}
+            
             <Card className="bg-card border-border overflow-hidden">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-center">
@@ -988,7 +1169,7 @@ const ProductionReport = () => {
               </CardHeader>
 
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                {/* Donut chart */}
+                
                 <div className="h-[260px] relative flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -1005,7 +1186,7 @@ const ProductionReport = () => {
                   </div>
                 </div>
 
-                {/* Legend + Vacations */}
+                
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">RESUMEN POR CATEGORÍA</h4>
@@ -1051,7 +1232,7 @@ const ProductionReport = () => {
               </CardHeader>
 
               <CardContent className="relative z-10 space-y-6">
-                {/* Metrics grid */}
+                
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-background/40 p-3 rounded-lg border border-white/5 backdrop-blur-sm">
                     <span className="text-xs text-muted-foreground block mb-1">Total Producción</span>
