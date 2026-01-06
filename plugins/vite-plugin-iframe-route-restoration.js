@@ -1,7 +1,7 @@
 export default function iframeRouteRestorationPlugin() {
   return {
-    name: 'vite:iframe-route-restoration',
-    apply: 'serve',
+    name: "vite:iframe-route-restoration",
+    apply: "serve",
     transformIndexHtml() {
       const script = `
       const ALLOWED_PARENT_ORIGINS = [
@@ -114,12 +114,12 @@ export default function iframeRouteRestorationPlugin() {
 
       return [
         {
-          tag: 'script',
-          attrs: { type: 'module' },
+          tag: "script",
+          attrs: { type: "module" },
           children: script,
-          injectTo: 'head'
-        }
+          injectTo: "head",
+        },
       ];
-    }
+    },
   };
 }

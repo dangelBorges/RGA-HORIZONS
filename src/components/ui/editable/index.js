@@ -1,7 +1,4 @@
-import AdvancedCellEditors from './AdvancedCellEditors';
-import EditableAccordion from './EditableAccordion';
+import AdvancedCellEditors from "./AdvancedCellEditors";
+import EditableAccordion from "./EditableAccordion";
 
-export {
-    AdvancedCellEditors,
-    EditableAccordion,
-};
+export { AdvancedCellEditors, EditableAccordion };

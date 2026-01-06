@@ -1,17 +1,26 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useProductionReports } from '@/hooks/useReports';
-import TopRawMaterialsChart from '@/components/reports/production/TopRawMaterialsChart';
-import ProductionFilters from '@/components/ProductionFilters';
+import React, { useState, useMemo, useEffect } from "react";
+
+// Librerías de visualización
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area, PieChart, Pie, Cell
-} from 'recharts';
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+
+// Iconografía
 import {
   Factory,
   FileText,
   History,
-  Map as MapIcon,
   Users,
   CheckCircle2,
   Briefcase,
@@ -19,20 +28,31 @@ import {
   XCircle,
   Activity,
   Target,
-  AlertTriangle
+  AlertTriangle,
 } from "lucide-react";
-import { motion } from 'framer-motion';
-import ProductionTrajectory from '@/components/reports/ProductionTrajectory';
-import ProductionReportLayout from '@/components/reports/ProductionReportLayout';
+
+// Componentes internos
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-
-import { useClientAnalytics } from "@/hooks/useClientAnalytics";
+import ProductionReportLayout from "@/components/reports/ProductionReportLayout";
+import ProductionTrajectory from "@/components/reports/ProductionTrajectory";
+import TopRawMaterialsChart from "@/components/reports/production/TopRawMaterialsChart";
+import ProductionFilters from "@/components/ProductionFilters";
 import ClientBarChart from "@/components/charts/ClientBarChart";
+
+// Hooks
+import { useProductionReports } from "@/hooks/useReports";
 
 // --------------------------------------------------
 // Comentarios (en español):
@@ -44,34 +64,106 @@ import ClientBarChart from "@/components/charts/ClientBarChart";
 // A continuación se documentan los bloques principales en español.
 // --------------------------------------------------
 
-
 // Mapa de traducción simple usado para etiquetas mostradas en UI
 const TRANSLATION_MAP = {
-  'producción total': 'Producción Total',
-  'enviado a los inplants': 'Enviado a las Plantas Cliente',
+  "producción total": "Producción Total",
+  "enviado a los inplants": "Enviado a las Plantas Cliente",
 };
 
 // Mapeo estático de códigos de cliente a nombres legibles
 const CLIENT_MAPPING = {
-  'C0010': 'CMPC Osorno',
-  'C0005': 'Chilempack',
-  'C0029': 'Chilempack',
-  'C0031': 'CMPC Osorno',
-  'C0049': 'CMPC Buin Norte',
-  'C0059': 'CMPC Buin Sur',
-  'C0052': 'Til Til'
+  C0010: "CMPC Osorno",
+  C0005: "Chilempack",
+  C0029: "Chilempack",
+  C0031: "CMPC Osorno",
+  C0049: "CMPC Buin Norte",
+  C0059: "CMPC Buin Sur",
+  C0052: "Til Til",
 };
 
- // Helpers para obtener valores numéricos/strings de un registro
- // Intentan varias variantes de nombre de campo y devuelven valor por defecto seguro
-  const getVal = (r = {}, key) => r?.[key] ?? r?.[key.charAt(0).toUpperCase() + key.slice(1)] ?? 0;
-  const getStr = (r = {}, key) => {
-    if (!r) return '';
-    return r?.[key] ?? r?.[key.charAt(0).toUpperCase() + key.slice(1)] ?? '';
-  };
+// Helpers para obtener valores numéricos/strings de un registro
+// Intentan varias variantes de nombre de campo y devuelven valor por defecto seguro
+const getVal = (r = {}, key) =>
+  r?.[key] ?? r?.[key.charAt(0).toUpperCase() + key.slice(1)] ?? 0;
+const getStr = (r = {}, key) => {
+  if (!r) return "";
+  return r?.[key] ?? r?.[key.charAt(0).toUpperCase() + key.slice(1)] ?? "";
+};
 
 // Traduce textos usando TRANSLATION_MAP, si existe
 const translateText = (key) => TRANSLATION_MAP[key?.toLowerCase()] || key;
+
+// Resuelve nombre de cliente a partir de varios campos posibles y del mapeo
+const resolveClientName = (r = {}) => {
+  const code =
+    r["CveCliente"] || r["cvecliente"] || r["cveCliente"] || r["CVE_CLIENTE"];
+  if (code) {
+    const cleanCode = String(code).trim();
+    if (CLIENT_MAPPING[cleanCode]) return CLIENT_MAPPING[cleanCode];
+  }
+  const rawName = getStr(r, "cliente");
+  return rawName || "Sin Cliente";
+};
+
+// --------------------
+// Subcomponentes locales (presentacionales)
+// --------------------
+const KPIItem = ({ kpi }) => (
+  <Card className="h-full bg-card border-cyan-500/20 shadow-lg relative overflow-hidden group">
+    <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
+    <CardHeader className="pb-2">
+      <CardTitle className="text-cyan-400 font-bold uppercase tracking-wider text-sm">
+        {kpi.label}
+      </CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="mt-2">
+        <span className="text-4xl lg:text-5xl font-extrabold text-blue-700 tracking-tight">
+          {parseFloat(kpi.value).toLocaleString(undefined, {
+            maximumFractionDigits: 0,
+          })}
+        </span>
+        <div className="text-xl font-bold text-slate-500 mt-1">
+          {kpi.unit?.toUpperCase()}
+        </div>
+      </div>
+      {kpi.subtext && (
+        <p className="text-xs text-slate-400 mt-4 flex items-center gap-1">
+          {kpi.subtext}
+        </p>
+      )}
+    </CardContent>
+  </Card>
+);
+
+const ClientRankItem = ({ client, maxVolume }) => (
+  <div
+    key={client.id}
+    className="flex items-center justify-between mb-3 p-2 rounded-lg bg-white/5 hover:bg-white/10"
+  >
+    <div className="flex items-center gap-3">
+      <div
+        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${client.rank <= 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+      >
+        {client.rank}
+      </div>
+      <div>
+        <p className="text-sm font-medium">{client.client_name}</p>
+        <div className="bg-muted/30 h-1.5 mt-1 rounded-full overflow-hidden w-24">
+          <div
+            className="h-full bg-primary/70 rounded-full"
+            style={{
+              width: `${(client.volume_kilos / (maxVolume || 1)) * 100}%`,
+            }}
+          />
+        </div>
+      </div>
+    </div>
+    <span className="text-sm font-mono text-muted-foreground">
+      {parseInt(client.volume_kilos).toLocaleString()} kg
+    </span>
+  </div>
+);
 
 // Componente principal del reporte de producción
 const ProductionReport = () => {
@@ -80,17 +172,17 @@ const ProductionReport = () => {
     kpis: initialKpis = [],
     plantsMapData,
     topProducts = [],
-    loading
+    loading,
   } = useProductionReports();
 
   // ---------------------------
   // ---------------------------
   // Estado y control de filtros visibles en UI (año, mes, rango de fechas)
   const [filters, setFilters] = useState({
-    year: 'all',
-    month: 'all',
-    dateFrom: '',
-    dateTo: ''
+    year: "all",
+    month: "all",
+    dateFrom: "",
+    dateTo: "",
   });
   const [filtersInitialized, setFiltersInitialized] = useState(false);
 
@@ -98,16 +190,16 @@ const ProductionReport = () => {
   // ---------------------------
   // Filtros adicionales usados para vistas históricas (cliente, año, mes)
   const [historicalFilters, setHistoricalFilters] = useState({
-    year: 'all',
-    month: 'all',
-    client: 'all',
+    year: "all",
+    month: "all",
+    client: "all",
   });
 
   // Calcula los años disponibles a partir de los registros de producción
   const availableYears = useMemo(() => {
     const setYears = new Set();
-    productionRecords.forEach(r => {
-      const dStr = getStr(r, 'fecha');
+    productionRecords.forEach((r) => {
+      const dStr = getStr(r, "fecha");
       if (!dStr) return;
       const d = new Date(dStr);
       if (!isNaN(d.getTime())) setYears.add(String(d.getFullYear()));
@@ -118,34 +210,23 @@ const ProductionReport = () => {
 
   // Estados para comparación interanual (A vs B)
   const [compareYearA, setCompareYearA] = useState(
-    availableYears[availableYears.length - 2] || ''
+    availableYears[availableYears.length - 2] || "",
   );
   const [compareYearB, setCompareYearB] = useState(
-    availableYears[availableYears.length - 1] || ''
+    availableYears[availableYears.length - 1] || "",
   );
-
-
-
-  
-  
-  
-  // Intenta resolver por varias claves posibles y luego por campo `cliente`
-  const resolveClientName = (r = {}) => {
-    const code = r['CveCliente'] || r['cvecliente'] || r['cveCliente'] || r['CVE_CLIENTE'];
-    if (code) {
-      const cleanCode = String(code).trim();
-      if (CLIENT_MAPPING[cleanCode]) return CLIENT_MAPPING[cleanCode];
-    }
-    const rawName = getStr(r, 'cliente');
-    return rawName || 'Sin Cliente';
-  };
 
   // Busca la fecha máxima en los registros y actualiza filtros iniciales
   useEffect(() => {
-    if (!loading && productionRecords && productionRecords.length > 0 && !filtersInitialized) {
+    if (
+      !loading &&
+      productionRecords &&
+      productionRecords.length > 0 &&
+      !filtersInitialized
+    ) {
       let maxDate = null;
-      productionRecords.forEach(r => {
-        const dStr = getStr(r, 'fecha');
+      productionRecords.forEach((r) => {
+        const dStr = getStr(r, "fecha");
         if (!dStr) return;
         const d = new Date(dStr);
         if (!isNaN(d.getTime())) {
@@ -153,46 +234,53 @@ const ProductionReport = () => {
         }
       });
       if (maxDate) {
-        setFilters(prev => ({
+        setFilters((prev) => ({
           ...prev,
           year: String(maxDate.getFullYear()),
-          month: String(maxDate.getMonth())
+          month: String(maxDate.getMonth()),
         }));
         setFiltersInitialized(true);
       }
     }
   }, [loading, productionRecords, filtersInitialized]);
 
-  
-
   // Estado para la sección de analítica por cliente
-  const [clientAnalyticsYear, setClientAnalyticsYear] = useState('all');
+  const [clientAnalyticsYear, setClientAnalyticsYear] = useState("all");
 
   const clientAnalyticsYears = availableYears;
   const selectedYear = clientAnalyticsYear;
   const previousYears =
-    selectedYear === 'all'
+    selectedYear === "all"
       ? []
-      : availableYears.filter(y => y < selectedYear);
-
+      : availableYears.filter((y) => y < selectedYear);
 
   // Filtra `productionRecords` según `filters` seleccionadas
   const filteredRecords = useMemo(() => {
     if (!productionRecords) return [];
-    return productionRecords.filter(record => {
-      const dateStr = getStr(record, 'fecha');
+    return productionRecords.filter((record) => {
+      const dateStr = getStr(record, "fecha");
       if (!dateStr) return false;
       const recordDate = new Date(dateStr);
       if (isNaN(recordDate.getTime())) return false;
 
-      if (filters.year !== 'all' && String(recordDate.getFullYear()) !== filters.year) return false;
-      if (filters.month !== 'all' && String(recordDate.getMonth()) !== filters.month) return false;
+      if (
+        filters.year !== "all" &&
+        String(recordDate.getFullYear()) !== filters.year
+      )
+        return false;
+      if (
+        filters.month !== "all" &&
+        String(recordDate.getMonth()) !== filters.month
+      )
+        return false;
       if (filters.dateFrom) {
-        const from = new Date(filters.dateFrom); from.setHours(0, 0, 0, 0);
+        const from = new Date(filters.dateFrom);
+        from.setHours(0, 0, 0, 0);
         if (recordDate < from) return false;
       }
       if (filters.dateTo) {
-        const to = new Date(filters.dateTo); to.setHours(23, 59, 59, 999);
+        const to = new Date(filters.dateTo);
+        to.setHours(23, 59, 59, 999);
         if (recordDate > to) return false;
       }
       return true;
@@ -203,79 +291,127 @@ const ProductionReport = () => {
   const previousPeriodData = useMemo(() => {
     if (!productionRecords || productionRecords.length === 0) return [];
     let anchorDate = new Date();
-    if (filters.dateFrom) { anchorDate = new Date(filters.dateFrom); anchorDate.setHours(0, 0, 0, 0); }
-    else {
+    if (filters.dateFrom) {
+      anchorDate = new Date(filters.dateFrom);
+      anchorDate.setHours(0, 0, 0, 0);
+    } else {
       const currentYear = new Date().getFullYear();
-      const y = filters.year !== 'all' ? parseInt(filters.year) : currentYear;
-      const m = filters.month !== 'all' ? parseInt(filters.month) : 0;
+      const y = filters.year !== "all" ? parseInt(filters.year) : currentYear;
+      const m = filters.month !== "all" ? parseInt(filters.month) : 0;
       anchorDate = new Date(y, m, 1);
     }
     const endDate = new Date(anchorDate);
-    const startDate = new Date(anchorDate); startDate.setMonth(startDate.getMonth() - 3);
+    const startDate = new Date(anchorDate);
+    startDate.setMonth(startDate.getMonth() - 3);
 
-    const pastRecords = productionRecords.filter(r => {
-      const dStr = getStr(r, 'fecha'); if (!dStr) return false;
-      const d = new Date(dStr); return d >= startDate && d < endDate;
+    const pastRecords = productionRecords.filter((r) => {
+      const dStr = getStr(r, "fecha");
+      if (!dStr) return false;
+      const d = new Date(dStr);
+      return d >= startDate && d < endDate;
     });
 
     const grouped = {};
-    for (let d = new Date(startDate); d < endDate; d.setMonth(d.getMonth() + 1)) {
+    for (
+      let d = new Date(startDate);
+      d < endDate;
+      d.setMonth(d.getMonth() + 1)
+    ) {
       const sortKey = d.toISOString().slice(0, 7);
-      const label = d.toLocaleString('es-CL', { month: 'short' });
-      grouped[sortKey] = { name: label.charAt(0).toUpperCase() + label.slice(1), sortKey, value: 0 };
+      const label = d.toLocaleString("es-CL", { month: "short" });
+      grouped[sortKey] = {
+        name: label.charAt(0).toUpperCase() + label.slice(1),
+        sortKey,
+        value: 0,
+      };
     }
-    pastRecords.forEach(r => {
-      const d = new Date(getStr(r, 'fecha'));
+    pastRecords.forEach((r) => {
+      const d = new Date(getStr(r, "fecha"));
       const sortKey = d.toISOString().slice(0, 7);
       if (grouped[sortKey]) {
-        const val = Number(getVal(r, 'completado')) || Number(getVal(r, 'completado real')) || 0;
+        const val =
+          Number(getVal(r, "completado")) ||
+          Number(getVal(r, "completado real")) ||
+          0;
         grouped[sortKey].value += val;
       }
     });
-    return Object.values(grouped).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+    return Object.values(grouped).sort((a, b) =>
+      a.sortKey.localeCompare(b.sortKey),
+    );
   }, [productionRecords, filters]);
 
   // Calcula KPIs dinámicos basados en `filteredRecords` (p.ej. Producción Total)
   const dynamicKPIs = useMemo(() => {
-    const totalCompleted = filteredRecords.reduce((acc, r) => acc + (Number(getVal(r, 'completado')) || Number(getVal(r, 'completado real')) || 0), 0);
-    if (!productionRecords || productionRecords.length === 0) return initialKpis || [];
-    return [{ id: 'k1', label: translateText('Producción Total'), value: totalCompleted, unit: 'kg', trend_up: true, subtext: translateText('Enviado a las Plantas Cliente') }];
+    const totalCompleted = filteredRecords.reduce(
+      (acc, r) =>
+        acc +
+        (Number(getVal(r, "completado")) ||
+          Number(getVal(r, "completado real")) ||
+          0),
+      0,
+    );
+    if (!productionRecords || productionRecords.length === 0)
+      return initialKpis || [];
+    return [
+      {
+        id: "k1",
+        label: translateText("Producción Total"),
+        value: totalCompleted,
+        unit: "kg",
+        trend_up: true,
+        subtext: translateText("Enviado a las Plantas Cliente"),
+      },
+    ];
   }, [filteredRecords, initialKpis, productionRecords]);
 
   // Agrupa producción por cliente/plant para mostrar en gráfico
   const productionByPlant = useMemo(() => {
     const grouped = {};
-    filteredRecords.forEach(r => {
+    filteredRecords.forEach((r) => {
       const name = resolveClientName(r);
-      const val = Number(getVal(r, 'completado')) || Number(getVal(r, 'completado real')) || 0;
+      const val =
+        Number(getVal(r, "completado")) ||
+        Number(getVal(r, "completado real")) ||
+        0;
       grouped[name] = (grouped[name] || 0) + val;
     });
-    return Object.keys(grouped).map(k => ({ name: k, value: grouped[k] })).sort((a, b) => b.value - a.value);
+    return Object.keys(grouped)
+      .map((k) => ({ name: k, value: grouped[k] }))
+      .sort((a, b) => b.value - a.value);
   }, [filteredRecords]);
 
   // Calcula clientes principales por volumen en el periodo filtrado
   const productionByClient = useMemo(() => {
     const grouped = {};
-    filteredRecords.forEach(r => {
+    filteredRecords.forEach((r) => {
       const client = resolveClientName(r);
-      const val = Number(getVal(r, 'completado')) || Number(getVal(r, 'completado real')) || 0;
+      const val =
+        Number(getVal(r, "completado")) ||
+        Number(getVal(r, "completado real")) ||
+        0;
       grouped[client] = (grouped[client] || 0) + val;
     });
     return Object.entries(grouped)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5)
-      .map(([name, vol], i) => ({ id: name, rank: i + 1, client_name: name, volume_kilos: vol }));
+      .map(([name, vol], i) => ({
+        id: name,
+        rank: i + 1,
+        client_name: name,
+        volume_kilos: vol,
+      }));
   }, [filteredRecords]);
 
   // Productos principales filtrados por periodo
   const topProductsFiltered = useMemo(() => {
     const grouped = {};
 
-    filteredRecords.forEach(r => {
-      const product = getStr(r, 'Descripcion') || 'Sin producto';
+    filteredRecords.forEach((r) => {
+      const product = getStr(r, "Descripcion") || "Sin producto";
       const value =
-        Number(getVal(r, 'completado')) ||
-        Number(getVal(r, 'completado real')) ||
+        Number(getVal(r, "completado")) ||
+        Number(getVal(r, "completado real")) ||
         0;
 
       grouped[product] = (grouped[product] || 0) + value;
@@ -287,22 +423,27 @@ const ProductionReport = () => {
       .slice(0, 10); // 10 principales (ajustable)
   }, [filteredRecords]);
 
-
   // Agrupa por Descripción (artículo) y toma 8 principales
   const productionByArticle = useMemo(() => {
     const grouped = {};
-    filteredRecords.forEach(r => {
-      const art = getStr(r, 'Descripcion') || 'Varios';
-      const val = Number(getVal(r, 'completado')) || Number(getVal(r, 'completado real')) || 0;
+    filteredRecords.forEach((r) => {
+      const art = getStr(r, "Descripcion") || "Varios";
+      const val =
+        Number(getVal(r, "completado")) ||
+        Number(getVal(r, "completado real")) ||
+        0;
       grouped[art] = (grouped[art] || 0) + val;
     });
-    return Object.keys(grouped).map(k => ({ name: k, value: grouped[k] })).sort((a, b) => b.value - a.value).slice(0, 8);
+    return Object.keys(grouped)
+      .map((k) => ({ name: k, value: grouped[k] }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
   }, [filteredRecords]);
 
   // Extrae todos los clientes únicos para los selectores
   const availableClients = useMemo(() => {
     const set = new Set();
-    productionRecords.forEach(r => {
+    productionRecords.forEach((r) => {
       set.add(resolveClientName(r));
     });
     return Array.from(set).sort();
@@ -310,27 +451,30 @@ const ProductionReport = () => {
 
   // Filtra registros para vistas históricas (historicalFilters)
   const historicalFilteredRecords = useMemo(() => {
-    return productionRecords.filter(r => {
-      const dateStr = getStr(r, 'fecha');
+    return productionRecords.filter((r) => {
+      const dateStr = getStr(r, "fecha");
       if (!dateStr) return false;
 
       const d = new Date(dateStr);
       if (isNaN(d.getTime())) return false;
 
       if (
-        historicalFilters.year !== 'all' &&
+        historicalFilters.year !== "all" &&
         String(d.getFullYear()) !== historicalFilters.year
-      ) return false;
+      )
+        return false;
 
       if (
-        historicalFilters.month !== 'all' &&
+        historicalFilters.month !== "all" &&
         String(d.getMonth()) !== historicalFilters.month
-      ) return false;
+      )
+        return false;
 
       if (
-        historicalFilters.client !== 'all' &&
+        historicalFilters.client !== "all" &&
         resolveClientName(r) !== historicalFilters.client
-      ) return false;
+      )
+        return false;
 
       return true;
     });
@@ -340,13 +484,13 @@ const ProductionReport = () => {
   const historicalDensityData = useMemo(() => {
     const grouped = {};
 
-    historicalFilteredRecords.forEach(r => {
-      const d = new Date(getStr(r, 'fecha'));
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    historicalFilteredRecords.forEach((r) => {
+      const d = new Date(getStr(r, "fecha"));
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
       const val =
-        Number(getVal(r, 'completado')) ||
-        Number(getVal(r, 'completado real')) ||
+        Number(getVal(r, "completado")) ||
+        Number(getVal(r, "completado real")) ||
         0;
 
       grouped[key] = (grouped[key] || 0) + val;
@@ -363,17 +507,17 @@ const ProductionReport = () => {
 
     const base = Array.from({ length: 12 }, (_, i) => ({
       month: i,
-      label: new Date(2000, i).toLocaleString('es-CL', { month: 'short' }),
+      label: new Date(2000, i).toLocaleString("es-CL", { month: "short" }),
       [compareYearA]: 0,
       [compareYearB]: 0,
     }));
 
-    filteredRecords.forEach(r => {
-      const year = Number(getVal(r, 'año'));
-      const month = Number(getVal(r, 'mes'));
+    filteredRecords.forEach((r) => {
+      const year = Number(getVal(r, "año"));
+      const month = Number(getVal(r, "mes"));
       const value =
-        Number(getVal(r, 'completado')) ||
-        Number(getVal(r, 'completado real')) ||
+        Number(getVal(r, "completado")) ||
+        Number(getVal(r, "completado real")) ||
         0;
 
       if (month == null || Number.isNaN(month)) return;
@@ -390,16 +534,29 @@ const ProductionReport = () => {
     return base;
   }, [filteredRecords, compareYearA, compareYearB]);
 
-
-
-
-
   // Valores auxiliares derivados de KPIs y registros filtrados
-  const totalProductionVal = dynamicKPIs.find(k => k.label === 'Producción Total')?.value || 0;
-  const totalPlannedForEfficiency = filteredRecords.reduce((acc, r) => acc + (Number(getVal(r, 'planificado')) || Number(getVal(r, 'planificado real')) || 0), 0);
-  const totalCompletedForEfficiency = filteredRecords.reduce((acc, r) => acc + (Number(getVal(r, 'completado')) || Number(getVal(r, 'completado real')) || 0), 0);
-  const efficiencyVal = totalPlannedForEfficiency > 0 ? (totalCompletedForEfficiency / totalPlannedForEfficiency) * 100 : 0;
-
+  const totalProductionVal =
+    dynamicKPIs.find((k) => k.label === "Producción Total")?.value || 0;
+  const totalPlannedForEfficiency = filteredRecords.reduce(
+    (acc, r) =>
+      acc +
+      (Number(getVal(r, "planificado")) ||
+        Number(getVal(r, "planificado real")) ||
+        0),
+    0,
+  );
+  const totalCompletedForEfficiency = filteredRecords.reduce(
+    (acc, r) =>
+      acc +
+      (Number(getVal(r, "completado")) ||
+        Number(getVal(r, "completado real")) ||
+        0),
+    0,
+  );
+  const efficiencyVal =
+    totalPlannedForEfficiency > 0
+      ? (totalCompletedForEfficiency / totalPlannedForEfficiency) * 100
+      : 0;
 
   // ---------------------------
   // - Bloque con datos de asistencia/ausentismos y lista de vacaciones
@@ -408,33 +565,58 @@ const ProductionReport = () => {
   const attendanceStats = useMemo(() => {
     // Datos de ejemplo (mock)
     return [
-      { category: 'Asistencia', percentage: 92, count: 92, color_hex: '#3b82f6' },
-      { category: 'Licencias', percentage: 3, count: 5, color_hex: '#10b981' },
-      { category: 'Vacaciones', percentage: 4, count: 6, color_hex: '#f59e0b' },
-      { category: 'Injustificadas', percentage: 1, count: 2, color_hex: '#ef4444' }
+      {
+        category: "Asistencia",
+        percentage: 92,
+        count: 92,
+        color_hex: "#3b82f6",
+      },
+      { category: "Licencias", percentage: 3, count: 5, color_hex: "#10b981" },
+      { category: "Vacaciones", percentage: 4, count: 6, color_hex: "#f59e0b" },
+      {
+        category: "Injustificadas",
+        percentage: 1,
+        count: 2,
+        color_hex: "#ef4444",
+      },
     ];
   }, [productionRecords]);
 
   // Preparar datos para gráfico tipo dona
-  const pieData = useMemo(() => attendanceStats.map(s => ({ name: s.category, value: s.percentage, count: s.count, color: s.color_hex })), [attendanceStats]);
-  const totalAttendance = pieData.find(d => d.name === 'Asistencia')?.value ?? 0;
-  const totalAbsences = pieData.filter(d => d.name !== 'Asistencia').reduce((acc, cur) => acc + (cur.count || 0), 0);
+  const pieData = useMemo(
+    () =>
+      attendanceStats.map((s) => ({
+        name: s.category,
+        value: s.percentage,
+        count: s.count,
+        color: s.color_hex,
+      })),
+    [attendanceStats],
+  );
+  const totalAttendance =
+    pieData.find((d) => d.name === "Asistencia")?.value ?? 0;
+  const totalAbsences = pieData
+    .filter((d) => d.name !== "Asistencia")
+    .reduce((acc, cur) => acc + (cur.count || 0), 0);
 
   // Lista de próximas vacaciones (ejemplo / valor por defecto)
-  const vacationList = useMemo(() => ([
-    { id: 'v1', employee_name: 'Jorge Mena', days_count: 6 },
-    { id: 'v2', employee_name: 'Osvaldo Núñez', days_count: 2 },
-    { id: 'v3', employee_name: 'Carola Lazcano', days_count: 2 },
-    { id: 'v4', employee_name: 'Benjamín Pino', days_count: 1 },
-    { id: 'v5', employee_name: 'Antonio Pérez', days_count: 5 }
-  ]), []);
+  const vacationList = useMemo(
+    () => [
+      { id: "v1", employee_name: "Jorge Mena", days_count: 6 },
+      { id: "v2", employee_name: "Osvaldo Núñez", days_count: 2 },
+      { id: "v3", employee_name: "Carola Lazcano", days_count: 2 },
+      { id: "v4", employee_name: "Benjamín Pino", days_count: 1 },
+      { id: "v5", employee_name: "Antonio Pérez", days_count: 5 },
+    ],
+    [],
+  );
 
   // Producción agregada por cliente y por año
   const productionByClientYear = useMemo(() => {
     const map = {};
 
-    productionRecords.forEach(r => {
-      const dateStr = getStr(r, 'fecha');
+    productionRecords.forEach((r) => {
+      const dateStr = getStr(r, "fecha");
       if (!dateStr) return;
 
       const d = new Date(dateStr);
@@ -443,8 +625,8 @@ const ProductionReport = () => {
       const year = String(d.getFullYear());
       const client = resolveClientName(r);
       const val =
-        Number(getVal(r, 'completado')) ||
-        Number(getVal(r, 'completado real')) ||
+        Number(getVal(r, "completado")) ||
+        Number(getVal(r, "completado real")) ||
         0;
 
       if (!map[client]) map[client] = {};
@@ -456,12 +638,12 @@ const ProductionReport = () => {
 
   // Clientes con incremento vs promedio histórico
   const clientsWithIncrease = useMemo(() => {
-    if (selectedYear === 'all') return [];
+    if (selectedYear === "all") return [];
 
     return Object.entries(productionByClientYear)
       .map(([client, years]) => {
         const current = years[selectedYear] || 0;
-        const pastValues = previousYears.map(y => years[y] || 0);
+        const pastValues = previousYears.map((y) => years[y] || 0);
         const pastAvg =
           pastValues.length > 0
             ? pastValues.reduce((a, b) => a + b, 0) / pastValues.length
@@ -471,28 +653,28 @@ const ProductionReport = () => {
           client,
           diff: current - pastAvg,
           current,
-          pastAvg
+          pastAvg,
         };
       })
 
-      .filter(r => r.diff > 0)
+      .filter((r) => r.diff > 0)
       .sort((a, b) => b.diff - a.diff);
   }, [productionByClientYear, selectedYear, previousYears]);
 
   // Clientes con mayor incremento (N principales)
   const topClientsWithIncrease = useMemo(
     () => clientsWithIncrease.slice(0, topN),
-    [clientsWithIncrease, topN]
+    [clientsWithIncrease, topN],
   );
 
   // Clientes con disminución vs promedio histórico
   const clientsWithDecrease = useMemo(() => {
-    if (selectedYear === 'all') return [];
+    if (selectedYear === "all") return [];
 
     return Object.entries(productionByClientYear)
       .map(([client, years]) => {
         const current = years[selectedYear] || 0;
-        const pastValues = previousYears.map(y => years[y] || 0);
+        const pastValues = previousYears.map((y) => years[y] || 0);
         const pastAvg =
           pastValues.length > 0
             ? pastValues.reduce((a, b) => a + b, 0) / pastValues.length
@@ -502,33 +684,31 @@ const ProductionReport = () => {
           client,
           diff: current - pastAvg,
           current,
-          pastAvg
+          pastAvg,
         };
       })
-      .filter(r => r.diff < 0)
+      .filter((r) => r.diff < 0)
       .sort((a, b) => a.diff - b.diff);
   }, [productionByClientYear, selectedYear, previousYears]);
 
   // Clientes con mayor disminución (N principales)
   const topClientsWithDecrease = useMemo(
     () => clientsWithDecrease.slice(0, topN),
-    [clientsWithDecrease, topN]
+    [clientsWithDecrease, topN],
   );
-
-
 
   // Clientes nuevos en el `selectedYear` (sin historial en previousYears)
   const newClients = useMemo(() => {
-    if (selectedYear === 'all') return [];
+    if (selectedYear === "all") return [];
 
     return Object.entries(productionByClientYear)
-      .filter(([_, years]) =>
-        years[selectedYear] &&
-        previousYears.every(y => !years[y])
+      .filter(
+        ([_, years]) =>
+          years[selectedYear] && previousYears.every((y) => !years[y]),
       )
       .map(([client, years]) => ({
         client,
-        volume: years[selectedYear]
+        volume: years[selectedYear],
       }))
       .sort((a, b) => b.volume - a.volume);
   }, [productionByClientYear, selectedYear, previousYears]);
@@ -536,25 +716,21 @@ const ProductionReport = () => {
   // Clientes nuevos (N principales)
   const topNewClients = useMemo(
     () => newClients.slice(0, topN),
-    [newClients, topN]
+    [newClients, topN],
   );
-
-
 
   // Clientes perdidos: tenían volumen en años previos pero no en selectedYear
   const lostClients = useMemo(() => {
-    if (selectedYear === 'all') return [];
+    if (selectedYear === "all") return [];
 
     return Object.entries(productionByClientYear)
-      .filter(([_, years]) =>
-        !years[selectedYear] &&
-        previousYears.some(y => years[y])
+      .filter(
+        ([_, years]) =>
+          !years[selectedYear] && previousYears.some((y) => years[y]),
       )
       .map(([client, years]) => ({
         client,
-        lastYearVolume: Math.max(
-          ...previousYears.map(y => years[y] || 0)
-        )
+        lastYearVolume: Math.max(...previousYears.map((y) => years[y] || 0)),
       }))
       .sort((a, b) => b.lastYearVolume - a.lastYearVolume);
   }, [productionByClientYear, selectedYear, previousYears]);
@@ -562,16 +738,12 @@ const ProductionReport = () => {
   // Clientes perdidos (N principales)
   const topLostClients = useMemo(
     () => lostClients.slice(0, topN),
-    [lostClients, topN]
+    [lostClients, topN],
   );
-
-
 
   // Valores listos para mostrar en el resumen ejecutivo
   const totalProduction = totalProductionVal;
   const efficiency = `${Math.round(efficiencyVal)}%`;
-
-
 
   // ---------------------------
   // Renderizado condicional mientras `loading` es true
@@ -588,7 +760,6 @@ const ProductionReport = () => {
   // Render principal del layout del reporte
   return (
     <ProductionReportLayout>
-
       <div className="space-y-6 pb-10">
         {/* Comentario JSX: componente que controla los filtros visibles (año, mes, rango) */}
         <ProductionFilters
@@ -600,31 +771,17 @@ const ProductionReport = () => {
         <section className="space-y-6">
           <div className="flex items-center gap-2 mb-2">
             <Factory className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold tracking-tight">Dashboard de Producción</h2>
+            <h2 className="text-2xl font-bold tracking-tight">
+              Dashboard de Producción
+            </h2>
           </div>
 
-          
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
             {/* Bloque izquierdo con KPIs dinámicos y tendencia de últimos 3 meses */}
             <div className="lg:col-span-3 flex flex-col gap-6">
               <div className="flex-1 min-h-[180px]">
-                {dynamicKPIs.map(kpi => (
-                  <Card key={kpi.id} className="h-full bg-card border-cyan-500/20 shadow-lg relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-cyan-400 font-bold uppercase tracking-wider text-sm">{kpi.label}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="mt-2">
-                        <span className="text-4xl lg:text-5xl font-extrabold text-blue-700 tracking-tight">
-                          {parseFloat(kpi.value).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                        </span>
-                        <div className="text-xl font-bold text-slate-500 mt-1">{kpi.unit?.toUpperCase()}</div>
-                      </div>
-                      {kpi.subtext && <p className="text-xs text-slate-400 mt-4 flex items-center gap-1">{kpi.subtext}</p>}
-                    </CardContent>
-                  </Card>
+                {dynamicKPIs.map((kpi) => (
+                  <KPIItem kpi={kpi} key={kpi.id} />
                 ))}
               </div>
 
@@ -635,26 +792,86 @@ const ProductionReport = () => {
                       <History className="w-4 h-4" /> Últimos 3 Meses
                     </CardTitle>
                   </CardHeader>
-                    <CardContent className="flex-1 min-h-0 pt-0">
+                  <CardContent className="flex-1 min-h-0 pt-0">
                     <div className="h-full w-full min-h-[180px]">
                       {previousPeriodData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={previousPeriodData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <AreaChart
+                            data={previousPeriodData}
+                            margin={{
+                              top: 10,
+                              right: 10,
+                              left: -20,
+                              bottom: 0,
+                            }}
+                          >
                             <defs>
-                              <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3} />
-                                <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
+                              <linearGradient
+                                id="colorValue"
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                              >
+                                <stop
+                                  offset="5%"
+                                  stopColor="#22d3ee"
+                                  stopOpacity={0.3}
+                                />
+                                <stop
+                                  offset="95%"
+                                  stopColor="#22d3ee"
+                                  stopOpacity={0}
+                                />
                               </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" opacity={0.1} vertical={false} />
-                            <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#334155' }} interval={0} />
-                            <YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`} />
-                            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#f8fafc', fontSize: '12px' }} itemStyle={{ color: '#22d3ee' }} formatter={(value) => [`${parseInt(value).toLocaleString()} kg`, 'Volumen']} />
-                            <Area type="monotone" dataKey="value" stroke="#22d3ee" fillOpacity={1} fill="url(#colorValue)" strokeWidth={3} />
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              opacity={0.1}
+                              vertical={false}
+                            />
+                            <XAxis
+                              dataKey="name"
+                              tick={{ fill: "#64748b", fontSize: 10 }}
+                              tickLine={false}
+                              axisLine={{ stroke: "#334155" }}
+                              interval={0}
+                            />
+                            <YAxis
+                              tick={{ fill: "#64748b", fontSize: 10 }}
+                              axisLine={false}
+                              tickLine={false}
+                              tickFormatter={(val) =>
+                                `${(val / 1000).toFixed(0)}k`
+                              }
+                            />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: "#0f172a",
+                                borderColor: "#334155",
+                                color: "#f8fafc",
+                                fontSize: "12px",
+                              }}
+                              itemStyle={{ color: "#22d3ee" }}
+                              formatter={(value) => [
+                                `${parseInt(value).toLocaleString()} kg`,
+                                "Volumen",
+                              ]}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="value"
+                              stroke="#22d3ee"
+                              fillOpacity={1}
+                              fill="url(#colorValue)"
+                              strokeWidth={3}
+                            />
                           </AreaChart>
                         </ResponsiveContainer>
                       ) : (
-                        <div className="h-full flex items-center justify-center text-muted-foreground">Sin datos previos</div>
+                        <div className="h-full flex items-center justify-center text-muted-foreground">
+                          Sin datos previos
+                        </div>
                       )}
                     </div>
                   </CardContent>
@@ -666,22 +883,73 @@ const ProductionReport = () => {
             <div className="lg:col-span-6 h-[500px]">
               <Card className="h-full bg-card border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)] flex flex-col">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-[#06b6d4] text-lg font-bold tracking-wide">Total completado agrupado por cliente</CardTitle>
-                  <CardDescription className="text-slate-400 text-xs">Total completado agrupado por cliente de GP Chile</CardDescription>
+                  <CardTitle className="text-[#06b6d4] text-lg font-bold tracking-wide">
+                    Total completado agrupado por cliente
+                  </CardTitle>
+                  <CardDescription className="text-slate-400 text-xs">
+                    Total completado agrupado por cliente de GP Chile
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 min-h-0 pt-4">
                   {productionByPlant.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={productionByPlant} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" opacity={0.1} horizontal vertical stroke="#06b6d4" />
+                      <BarChart
+                        data={productionByPlant}
+                        layout="vertical"
+                        margin={{ top: 0, right: 30, left: 40, bottom: 0 }}
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          opacity={0.1}
+                          horizontal
+                          vertical
+                          stroke="#06b6d4"
+                        />
                         <XAxis type="number" hide />
-                        <YAxis dataKey="name" type="category" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} width={140} />
-                        <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px', color: '#f8fafc' }} cursor={{ fill: '#06b6d4', opacity: 0.1 }} formatter={(value) => [`${parseInt(value).toLocaleString()} kg`, 'Volumen']} />
-                        <Bar dataKey="value" fill="#06b6d4" radius={[0, 4, 4, 0]} barSize={32} name="Volumen" label={{ position: 'right', fill: '#fff', fontSize: 12, formatter: val => parseInt(val).toLocaleString() }} />
+                        <YAxis
+                          dataKey="name"
+                          type="category"
+                          tick={{
+                            fill: "#94a3b8",
+                            fontSize: 11,
+                            fontWeight: 600,
+                          }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={140}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#0f172a",
+                            borderColor: "#1e293b",
+                            borderRadius: "8px",
+                            color: "#f8fafc",
+                          }}
+                          cursor={{ fill: "#06b6d4", opacity: 0.1 }}
+                          formatter={(value) => [
+                            `${parseInt(value).toLocaleString()} kg`,
+                            "Volumen",
+                          ]}
+                        />
+                        <Bar
+                          dataKey="value"
+                          fill="#06b6d4"
+                          radius={[0, 4, 4, 0]}
+                          barSize={32}
+                          name="Volumen"
+                          label={{
+                            position: "right",
+                            fill: "#fff",
+                            fontSize: 12,
+                            formatter: (val) => parseInt(val).toLocaleString(),
+                          }}
+                        />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="h-full flex items-center justify-center text-muted-foreground">Sin datos para el periodo seleccionado</div>
+                    <div className="h-full flex items-center justify-center text-muted-foreground">
+                      Sin datos para el periodo seleccionado
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -691,38 +959,39 @@ const ProductionReport = () => {
             <div className="lg:col-span-3 h-[500px]">
               <Card className="h-full bg-card border-border shadow-lg">
                 <CardHeader>
-                  <CardTitle className="text-lg">Top Clientes Consolidados</CardTitle>
+                  <CardTitle className="text-lg">
+                    Top Clientes Consolidados
+                  </CardTitle>
                   <CardDescription>Ranking por volumen</CardDescription>
                 </CardHeader>
 
                 <CardContent className="overflow-y-auto pr-2 scrollbar-thin">
-                  {productionByClient.length > 0 ? productionByClient.map(client => (
-                    <div key={client.id} className="flex items-center justify-between mb-3 p-2 rounded-lg bg-white/5 hover:bg-white/10">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${client.rank <= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-                          {client.rank}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">{client.client_name}</p>
-                          <div className="bg-muted/30 h-1.5 mt-1 rounded-full overflow-hidden w-24">
-                            <div className="h-full bg-primary/70 rounded-full" style={{ width: `${(client.volume_kilos / (productionByClient[0]?.volume_kilos || 1)) * 100}%` }} />
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-sm font-mono text-muted-foreground">{parseInt(client.volume_kilos).toLocaleString()} kg</span>
+                  {productionByClient.length > 0 ? (
+                    productionByClient.map((client) => (
+                      <ClientRankItem
+                        client={client}
+                        key={client.id}
+                        maxVolume={productionByClient[0]?.volume_kilos || 1}
+                      />
+                    ))
+                  ) : (
+                    <div className="text-center text-muted-foreground py-6">
+                      Sin datos
                     </div>
-                  )) : <div className="text-center text-muted-foreground py-6">Sin datos</div>}
+                  )}
                 </CardContent>
               </Card>
             </div>
-
           </div>
         </section>
 
         {/* Componente que muestra la trayectoria/ubicación de producción */}
         <section className="mt-12 block relative">
           <div className="w-full min-h-[520px] relative overflow-hidden">
-            <ProductionTrajectory records={productionRecords} clientMapping={CLIENT_MAPPING} />
+            <ProductionTrajectory
+              records={productionRecords}
+              clientMapping={CLIENT_MAPPING}
+            />
           </div>
         </section>
 
@@ -740,7 +1009,9 @@ const ProductionReport = () => {
                 {/* Controles de año/mes que reutilizan el estado `filters` del componente */}
                 <div className="flex items-center gap-4 mb-6 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-muted-foreground">Año</span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Año
+                    </span>
                     <select
                       className="border rounded-md px-3 py-2 bg-background text-sm"
                       value={filters.year}
@@ -750,13 +1021,17 @@ const ProductionReport = () => {
                     >
                       <option value="all">Todos</option>
                       {availableYears.map((y) => (
-                        <option key={y} value={y}>{y}</option>
+                        <option key={y} value={y}>
+                          {y}
+                        </option>
                       ))}
                     </select>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-muted-foreground">Mes</span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Mes
+                    </span>
                     <select
                       className="border rounded-md px-3 py-2 bg-background text-sm"
                       value={filters.month}
@@ -767,7 +1042,9 @@ const ProductionReport = () => {
                       <option value="all">Todos</option>
                       {Array.from({ length: 12 }).map((_, i) => (
                         <option key={i} value={String(i)}>
-                          {new Date(2000, i).toLocaleString('es-CL', { month: 'long' })}
+                          {new Date(2000, i).toLocaleString("es-CL", {
+                            month: "long",
+                          })}
                         </option>
                       ))}
                     </select>
@@ -777,7 +1054,6 @@ const ProductionReport = () => {
                 {/* GRÁFICOS */}
                 {/* Panel con Top productos y consumo de materia prima */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
                   {/* Top productos */}
                   {/* Gráfico de barras vertical mostrando los productos con mayor volumen */}
 
@@ -793,15 +1069,36 @@ const ProductionReport = () => {
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart
                             data={topProductsFiltered}
-
                             layout="vertical"
-                            margin={{ top: 10, right: 40, left: 40, bottom: 10 }}
+                            margin={{
+                              top: 10,
+                              right: 40,
+                              left: 40,
+                              bottom: 10,
+                            }}
                           >
-                            <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} opacity={0.2} />
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              horizontal
+                              vertical={false}
+                              opacity={0.2}
+                            />
                             <XAxis type="number" />
-                            <YAxis dataKey="producto" type="category" width={200} />
-                            <Tooltip formatter={(v) => `${Number(v).toLocaleString()} kg`} />
-                            <Bar dataKey="total_kg" fill="#6366f1" radius={[0, 6, 6, 0]} />
+                            <YAxis
+                              dataKey="producto"
+                              type="category"
+                              width={200}
+                            />
+                            <Tooltip
+                              formatter={(v) =>
+                                `${Number(v).toLocaleString()} kg`
+                              }
+                            />
+                            <Bar
+                              dataKey="total_kg"
+                              fill="#6366f1"
+                              radius={[0, 6, 6, 0]}
+                            />
                           </BarChart>
                         </ResponsiveContainer>
                       ) : (
@@ -814,7 +1111,7 @@ const ProductionReport = () => {
 
                   {/* Materia prima */}
                   {/* Muestra consumo de materias primas si año y mes están seleccionados */}
-                  {filters.year !== 'all' && filters.month !== 'all' ? (
+                  {filters.year !== "all" && filters.month !== "all" ? (
                     <TopRawMaterialsChart
                       year={Number(filters.year)}
                       month={Number(filters.month)}
@@ -826,26 +1123,24 @@ const ProductionReport = () => {
                       </span>
                     </Card>
                   )}
-
                 </div>
               </AccordionContent>
             </AccordionItem>
           </Accordion>
         </section>
 
-
-
-
         <section className="mt-12  border border-border rounded-xl p-6">
           <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="historical-production" className="border-none">
-
+            <AccordionItem
+              value="historical-production"
+              className="border-none"
+            >
               {/* PRODUCCION HISTORICA */}
               {/* Vista histórica con serie temporal mensual agregada */}
               <AccordionTrigger className="text-xl font-bold">
                 Producción histórica
               </AccordionTrigger>
-              <div className='flex items-center gap-4 mb-6 flex-wrap'>
+              <div className="flex items-center gap-4 mb-6 flex-wrap">
                 <div className="flex items-center gap-2">
                   <h4 className="text-xs font-semibold uppercase text-muted-foreground">
                     Filtros
@@ -855,13 +1150,18 @@ const ProductionReport = () => {
                   <select
                     className="w-full border rounded-md px-3 py-2 bg-background"
                     value={historicalFilters.year}
-                    onChange={e =>
-                      setHistoricalFilters(f => ({ ...f, year: e.target.value }))
+                    onChange={(e) =>
+                      setHistoricalFilters((f) => ({
+                        ...f,
+                        year: e.target.value,
+                      }))
                     }
                   >
                     <option value="all">Todos los años</option>
-                    {availableYears.map(y => (
-                      <option key={y} value={y}>{y}</option>
+                    {availableYears.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
                     ))}
                   </select>
 
@@ -869,13 +1169,18 @@ const ProductionReport = () => {
                   <select
                     className="w-full border rounded-md px-3 py-2 bg-background"
                     value={historicalFilters.client}
-                    onChange={e =>
-                      setHistoricalFilters(f => ({ ...f, client: e.target.value }))
+                    onChange={(e) =>
+                      setHistoricalFilters((f) => ({
+                        ...f,
+                        client: e.target.value,
+                      }))
                     }
                   >
                     <option value="all">Todos los clientes</option>
-                    {availableClients.map(c => (
-                      <option key={c} value={c}>{c}</option>
+                    {availableClients.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -885,7 +1190,6 @@ const ProductionReport = () => {
               {/* Contenido del acordeón con gráfico de densidad histórica */}
               <AccordionContent className="px-6 pb-6 pt-4">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
                   {/* ================= GRÁFICO ================= */}
                   {/* AreaChart que muestra producción histórica por periodo (YYYY-MM) */}
                   <div className="lg:col-span-12">
@@ -901,16 +1205,42 @@ const ProductionReport = () => {
                           <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={historicalDensityData}>
                               <defs>
-                                <linearGradient id="histColor" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.6} />
-                                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0.05} />
+                                <linearGradient
+                                  id="histColor"
+                                  x1="0"
+                                  y1="0"
+                                  x2="0"
+                                  y2="1"
+                                >
+                                  <stop
+                                    offset="5%"
+                                    stopColor="#6366f1"
+                                    stopOpacity={0.6}
+                                  />
+                                  <stop
+                                    offset="95%"
+                                    stopColor="#6366f1"
+                                    stopOpacity={0.05}
+                                  />
                                 </linearGradient>
                               </defs>
 
-                              <CartesianGrid strokeDasharray="3 3" opacity={0.15} vertical={false} />
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                opacity={0.15}
+                                vertical={false}
+                              />
                               <XAxis dataKey="period" />
-                              <YAxis tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
-                              <Tooltip formatter={v => `${Number(v).toLocaleString()} kg`} />
+                              <YAxis
+                                tickFormatter={(v) =>
+                                  `${(v / 1000).toFixed(0)}k`
+                                }
+                              />
+                              <Tooltip
+                                formatter={(v) =>
+                                  `${Number(v).toLocaleString()} kg`
+                                }
+                              />
 
                               <Area
                                 type="monotone"
@@ -929,14 +1259,11 @@ const ProductionReport = () => {
                       </CardContent>
                     </Card>
                   </div>
-
                 </div>
               </AccordionContent>
-
             </AccordionItem>
           </Accordion>
         </section>
-
 
         <section className="mt-12  border border-border rounded-xl p-6">
           {/* Analítica de Clientes: incrementos, nuevos, perdidos, etc. */}
@@ -954,11 +1281,13 @@ const ProductionReport = () => {
                   <select
                     className="border rounded-md px-3 py-2 bg-background"
                     value={clientAnalyticsYear}
-                    onChange={e => setClientAnalyticsYear(e.target.value)}
+                    onChange={(e) => setClientAnalyticsYear(e.target.value)}
                   >
                     <option value="all">Todos los años</option>
-                    {clientAnalyticsYears.map(y => (
-                      <option key={y} value={y}>{y}</option>
+                    {clientAnalyticsYears.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -971,7 +1300,7 @@ const ProductionReport = () => {
                   <select
                     className="border rounded-md px-3 py-2 bg-background"
                     value={topN}
-                    onChange={e => setTopN(Number(e.target.value))}
+                    onChange={(e) => setTopN(Number(e.target.value))}
                   >
                     <option value={5}>5</option>
                     <option value={10}>10</option>
@@ -980,13 +1309,9 @@ const ProductionReport = () => {
                 </div>
               </div>
 
-
-
               <AccordionContent className="pt-6 space-y-6">
-
                 {/* FILA 1: Incrementos / Descensos */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
                   <Card className="h-[380px] bg-card border-border">
                     <CardHeader>
                       <CardTitle className="text-sm uppercase tracking-wider text-emerald-400">
@@ -1016,12 +1341,10 @@ const ProductionReport = () => {
                       />
                     </CardContent>
                   </Card>
-
                 </div>
 
                 {/* FILA 2: Nuevos / Perdidos */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
                   <Card className="h-[300px] bg-card border-border">
                     <CardHeader>
                       <CardTitle className="text-sm uppercase tracking-wider text-indigo-400">
@@ -1051,15 +1374,11 @@ const ProductionReport = () => {
                       />
                     </CardContent>
                   </Card>
-
                 </div>
-
               </AccordionContent>
-
             </AccordionItem>
           </Accordion>
         </section>
-
 
         <section className="mt-12 border border-border rounded-xl p-6">
           <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
@@ -1079,7 +1398,9 @@ const ProductionReport = () => {
                   onChange={(e) => setCompareYearA(e.target.value)}
                 >
                   {availableYears.map((y) => (
-                    <option key={y} value={y}>{y}</option>
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1094,7 +1415,9 @@ const ProductionReport = () => {
                   onChange={(e) => setCompareYearB(e.target.value)}
                 >
                   {availableYears.map((y) => (
-                    <option key={y} value={y}>{y}</option>
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1145,69 +1468,110 @@ const ProductionReport = () => {
           </div>
         </section>
 
-
-
         {/* SECTION: ASISTENCIA / RRHH (layout basado en imagen) */}
         <section className="space-y-6 pt-6 border-t border-border/50">
           <div className="flex items-center gap-2 mb-4">
             <Users className="w-6 h-6 text-emerald-500" />
-            <h2 className="text-2xl font-bold tracking-tight">Informe de Gestión y RRHH</h2>
+            <h2 className="text-2xl font-bold tracking-tight">
+              Informe de Gestión y RRHH
+            </h2>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-            
             <Card className="bg-card border-border overflow-hidden">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-center">
-                  <CardTitle className="text-lg text-blue-400">Desglose Ausentismos</CardTitle>
+                  <CardTitle className="text-lg text-blue-400">
+                    Desglose Ausentismos
+                  </CardTitle>
                   <div className="flex items-center gap-2 px-3 py-1 bg-blue-500/10 rounded-full border border-blue-500/20">
                     <CheckCircle2 className="w-4 h-4 text-blue-500" />
-                    <span className="text-sm font-bold text-blue-500">{totalAttendance}% Asistencia</span>
+                    <span className="text-sm font-bold text-blue-500">
+                      {totalAttendance}% Asistencia
+                    </span>
                   </div>
                 </div>
               </CardHeader>
 
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                
                 <div className="h-[260px] relative flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={pieData} cx="45%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value" stroke="none">
-                        {pieData.map((entry, idx) => <Cell key={`cell-${idx}`} fill={entry.color} />)}
+                      <Pie
+                        data={pieData}
+                        cx="45%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={4}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {pieData.map((entry, idx) => (
+                          <Cell key={`cell-${idx}`} fill={entry.color} />
+                        ))}
                       </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: 'var(--card)', borderRadius: '8px', border: '1px solid var(--border)' }} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "var(--card)",
+                          borderRadius: "8px",
+                          border: "1px solid var(--border)",
+                        }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
 
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-2xl font-bold text-foreground">{totalAttendance}%</span>
-                    <span className="text-[10px] text-muted-foreground uppercase">GLOBAL</span>
+                    <span className="text-2xl font-bold text-foreground">
+                      {totalAttendance}%
+                    </span>
+                    <span className="text-[10px] text-muted-foreground uppercase">
+                      GLOBAL
+                    </span>
                   </div>
                 </div>
 
-                
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">RESUMEN POR CATEGORÍA</h4>
-                    {pieData.filter(d => d.name !== 'Asistencia').map(item => (
-                      <div key={item.name} className="flex items-center justify-between p-2 rounded bg-muted/20 text-sm">
-                        <div className="flex items-center gap-2">
-                          {item.name === 'Licencias' && <Briefcase className="w-4 h-4 text-emerald-500" />}
-                          {item.name === 'Vacaciones' && <Plane className="w-4 h-4 text-amber-500" />}
-                          {item.name === 'Injustificadas' && <XCircle className="w-4 h-4 text-red-500" />}
-                          <span>{item.name}</span>
+                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                      RESUMEN POR CATEGORÍA
+                    </h4>
+                    {pieData
+                      .filter((d) => d.name !== "Asistencia")
+                      .map((item) => (
+                        <div
+                          key={item.name}
+                          className="flex items-center justify-between p-2 rounded bg-muted/20 text-sm"
+                        >
+                          <div className="flex items-center gap-2">
+                            {item.name === "Licencias" && (
+                              <Briefcase className="w-4 h-4 text-emerald-500" />
+                            )}
+                            {item.name === "Vacaciones" && (
+                              <Plane className="w-4 h-4 text-amber-500" />
+                            )}
+                            {item.name === "Injustificadas" && (
+                              <XCircle className="w-4 h-4 text-red-500" />
+                            )}
+                            <span>{item.name}</span>
+                          </div>
+                          <span className="font-mono font-medium">
+                            {item.count}
+                          </span>
                         </div>
-                        <span className="font-mono font-medium">{item.count}</span>
-                      </div>
-                    ))}
+                      ))}
                   </div>
 
                   <div className="pt-4 border-t border-border">
-                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">PRÓXIMAS VACACIONES</h4>
+                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                      PRÓXIMAS VACACIONES
+                    </h4>
                     <div className="max-h-[140px] overflow-y-auto space-y-1 pr-2 scrollbar-thin scrollbar-thumb-muted">
-                      {vacationList.map(v => (
-                        <div key={v.id} className="flex justify-between text-xs text-muted-foreground hover:text-foreground">
+                      {vacationList.map((v) => (
+                        <div
+                          key={v.id}
+                          className="flex justify-between text-xs text-muted-foreground hover:text-foreground"
+                        >
                           <span>{v.employee_name}</span>
                           <span>{v.days_count} días</span>
                         </div>
@@ -1228,66 +1592,101 @@ const ProductionReport = () => {
                   <Activity className="w-5 h-5" />
                   Resumen Ejecutivo Mensual
                 </CardTitle>
-                <CardDescription>Consolidado de KPIs Críticos y Eficiencia</CardDescription>
+                <CardDescription>
+                  Consolidado de KPIs Críticos y Eficiencia
+                </CardDescription>
               </CardHeader>
 
               <CardContent className="relative z-10 space-y-6">
-                
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-background/40 p-3 rounded-lg border border-white/5 backdrop-blur-sm">
-                    <span className="text-xs text-muted-foreground block mb-1">Total Producción</span>
+                    <span className="text-xs text-muted-foreground block mb-1">
+                      Total Producción
+                    </span>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-xl font-bold text-foreground">{parseFloat(totalProduction).toLocaleString()}</span>
+                      <span className="text-xl font-bold text-foreground">
+                        {parseFloat(totalProduction).toLocaleString()}
+                      </span>
                       <span className="text-xs font-mono text-primary">kg</span>
                     </div>
                   </div>
 
                   <div className="bg-background/40 p-3 rounded-lg border border-white/5 backdrop-blur-sm">
-                    <span className="text-xs text-muted-foreground block mb-1">Eficiencia Global</span>
+                    <span className="text-xs text-muted-foreground block mb-1">
+                      Eficiencia Global
+                    </span>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-xl font-bold text-emerald-500">{efficiency}</span>
+                      <span className="text-xl font-bold text-emerald-500">
+                        {efficiency}
+                      </span>
                       <Target className="w-3 h-3 text-emerald-500 ml-1" />
                     </div>
                   </div>
 
                   <div className="bg-background/40 p-3 rounded-lg border border-white/5 backdrop-blur-sm">
-                    <span className="text-xs text-muted-foreground block mb-1">Reproceso</span>
+                    <span className="text-xs text-muted-foreground block mb-1">
+                      Reproceso
+                    </span>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-xl font-bold text-amber-500">1.2%</span>
+                      <span className="text-xl font-bold text-amber-500">
+                        1.2%
+                      </span>
                       <AlertTriangle className="w-3 h-3 text-amber-500 ml-1" />
                     </div>
                   </div>
 
                   <div className="bg-background/40 p-3 rounded-lg border border-white/5 backdrop-blur-sm">
-                    <span className="text-xs text-muted-foreground block mb-1">Ausentismo Total</span>
+                    <span className="text-xs text-muted-foreground block mb-1">
+                      Ausentismo Total
+                    </span>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-xl font-bold text-red-400">{totalAbsences}</span>
-                      <span className="text-xs text-muted-foreground">colaboradores</span>
+                      <span className="text-xl font-bold text-red-400">
+                        {totalAbsences}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        colaboradores
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Highlights */}
                 <div className="bg-primary/5 rounded-lg p-4 border border-primary/10">
-                  <h4 className="text-xs font-bold uppercase text-primary mb-3">Highlights del Mes</h4>
+                  <h4 className="text-xs font-bold uppercase text-primary mb-3">
+                    Highlights del Mes
+                  </h4>
                   <ul className="space-y-2">
                     <li className="text-sm flex items-start gap-2 text-muted-foreground">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                      <span>La producción total superó la meta en un <strong>4.5%</strong> gracias a la optimización en planta Santiago.</span>
+                      <span>
+                        La producción total superó la meta en un{" "}
+                        <strong>4.5%</strong> gracias a la optimización en
+                        planta Santiago.
+                      </span>
                     </li>
                     <li className="text-sm flex items-start gap-2 text-muted-foreground">
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
-                      <span>Se observa un leve aumento en reprocesos (<strong>+0.3%</strong>) en la línea de envasado automatizado.</span>
+                      <span>
+                        Se observa un leve aumento en reprocesos (
+                        <strong>+0.3%</strong>) en la línea de envasado
+                        automatizado.
+                      </span>
                     </li>
                     <li className="text-sm flex items-start gap-2 text-muted-foreground">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
-                      <span>Asistencia promedio se mantiene estable en <strong>{totalAttendance}%</strong>, con baja incidencia de licencias médicas.</span>
+                      <span>
+                        Asistencia promedio se mantiene estable en{" "}
+                        <strong>{totalAttendance}%</strong>, con baja incidencia
+                        de licencias médicas.
+                      </span>
                     </li>
                   </ul>
                 </div>
 
                 <div className="flex justify-between items-center pt-2">
-                  <span className="text-[10px] text-muted-foreground/50 uppercase">Última actualización: hace 2 horas</span>
+                  <span className="text-[10px] text-muted-foreground/50 uppercase">
+                    Última actualización: hace 2 horas
+                  </span>
                   <button className="text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1 transition-colors">
                     Ver Reporte Completo <FileText className="w-3 h-3" />
                   </button>
@@ -1297,7 +1696,6 @@ const ProductionReport = () => {
           </div>
         </section>
       </div>
-
     </ProductionReportLayout>
   );
 };

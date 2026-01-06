@@ -1,8 +1,8 @@
-import React from 'react';
-import { Moon, Sun, BarChart3 } from 'lucide-react';
-import { useTheme } from '@/contexts/ThemeContext';
-import { Button } from '@/components/ui/button';
-import { motion } from 'framer-motion';
+import React from "react";
+import { Moon, Sun, BarChart3 } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
+import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 
 const Header = () => {
   const { theme, toggleTheme } = useTheme();
@@ -21,12 +21,16 @@ const Header = () => {
             </div>
             <div>
               {/* Título Principal Traducido */}
-              <h1 className="text-xl font-bold text-foreground">Reporte Planta Rancagua -- GP Chile</h1>
+              <h1 className="text-xl font-bold text-foreground">
+                Reporte Planta Rancagua -- GP Chile
+              </h1>
               {/* Subtítulo Traducido */}
-              <p className="text-sm text-muted-foreground">Datos cargados en Tiempo Real</p>
+              <p className="text-sm text-muted-foreground">
+                Datos cargados en Tiempo Real
+              </p>
             </div>
           </div>
-          
+
           {/* Botón de Tema (Oscuro/Claro) - Sin traducción necesaria en la lógica */}
           <Button
             variant="outline"
@@ -36,10 +40,10 @@ const Header = () => {
           >
             <motion.div
               initial={false}
-              animate={{ rotate: theme === 'dark' ? 0 : 180 }}
+              animate={{ rotate: theme === "dark" ? 0 : 180 }}
               transition={{ duration: 0.3 }}
             >
-              {theme === 'dark' ? (
+              {theme === "dark" ? (
                 <Moon className="w-5 h-5" />
               ) : (
                 <Sun className="w-5 h-5" />
