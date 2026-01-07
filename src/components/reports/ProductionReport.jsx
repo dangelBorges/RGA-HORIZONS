@@ -62,6 +62,8 @@ import ExecutiveSummaryPanel from "@/components/reports/ExecutiveSummaryPanel";
 // Hooks
 import { useProductionReports } from "@/hooks/useReports";
 import { useInterannualComparison } from '@/hooks/useInterannualComparison';
+import { useExecutiveSummary } from "@/hooks/useExecutiveSummary";
+
 
 
 // --------------------------------------------------
@@ -130,7 +132,7 @@ const ProductionReport = () => {
   // Debugging outputs to inspect data during development
   try {
     console.debug("[ProductionReport] productionRecords:", productionRecords?.length);
-  } catch (e) {}
+  } catch (e) { }
 
   // ---------------------------
   // ---------------------------
@@ -491,8 +493,31 @@ const ProductionReport = () => {
 
   try {
     console.debug("[ProductionReport] interannualComparison sample:", interannualComparison?.slice?.(0, 3));
-  } catch (e) {}
+  } catch (e) { }
 
+  
+  const lastPeriodRecords = useMemo(() => {
+  if (!productionRecords || productionRecords.length === 0) return [];
+
+  // ordenamos por fecha descendente
+  const sorted = [...productionRecords].sort((a, b) => {
+    const da = new Date(getStr(a, "fecha"));
+    const db = new Date(getStr(b, "fecha"));
+    return db - da;
+  });
+
+  const lastDate = new Date(getStr(sorted[0], "fecha"));
+  const lastMonth = lastDate.getMonth();
+  const lastYear = lastDate.getFullYear();
+
+  return sorted.filter((r) => {
+    const d = new Date(getStr(r, "fecha"));
+    return (
+      d.getMonth() === lastMonth &&
+      d.getFullYear() === lastYear
+    );
+  });
+}, [productionRecords, getStr]);
 
 
 
@@ -519,6 +544,15 @@ const ProductionReport = () => {
     totalPlannedForEfficiency > 0
       ? (totalCompletedForEfficiency / totalPlannedForEfficiency) * 100
       : 0;
+
+
+ const executiveSummary = useExecutiveSummary({
+  records: productionRecords, // o lastPeriodRecords si ya lo tienes
+  getStr,
+  getVal
+});
+
+
 
   // ---------------------------
   // - Bloque con datos de asistencia/ausentismos y lista de vacaciones
@@ -719,7 +753,7 @@ const ProductionReport = () => {
     );
   }
 
-  
+
 
 
   // Render principal del layout del reporte
@@ -727,6 +761,137 @@ const ProductionReport = () => {
     <ProductionReportLayout>
       <a href="#main-content" className="sr-only focus:not-sr-only focus:block p-2 bg-primary text-white rounded-md z-50 fixed top-4 left-4">Saltar al contenido</a>
       <div id="main-content" role="main" className="space-y-6 pb-10">
+
+
+        {/* SECTION: ASISTENCIA / RRHH (layout basado en imagen) */}
+        <section className="space-y-6 pt-6 border-t border-border/50">
+          <div className="flex items-center gap-2 mb-4">
+            <Users className="w-6 h-6 text-emerald-500" />
+            <h2 className="text-2xl font-bold tracking-tight">
+              Informe de Gestión y RRHH
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            {/* LEFT: Executive RRHH summary */}
+            <ExecutiveSummaryPanel
+              totalProduction={executiveSummary?.totalProduction}
+              interannualVariation={executiveSummary?.interannualVariation}
+              activeClients={executiveSummary?.activeClients}
+              periodLabel={executiveSummary?.periodLabel}
+              efficiency={efficiency}
+              totalAbsences={totalAbsences}
+              totalAttendance={totalAttendance}
+            />
+            {/* RIGHT: Pie chart de asistencia y desglose de ausentismos */}          
+            <Card className="bg-card border-border overflow-hidden">
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-lg text-blue-400">
+                    Desglose Ausentismos
+                  </CardTitle>
+                  <div className="flex items-center gap-2 px-3 py-1 bg-blue-500/10 rounded-full border border-blue-500/20">
+                    <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                    <span className="text-sm font-bold text-blue-500">
+                      {totalAttendance}% Asistencia
+                    </span>
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                <div className="h-[260px] relative flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="45%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={4}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {pieData.map((entry, idx) => (
+                          <Cell key={`cell-${idx}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "var(--card)",
+                          borderRadius: "8px",
+                          border: "1px solid var(--border)",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-2xl font-bold text-foreground">
+                      {totalAttendance}%
+                    </span>
+                    <span className="text-[10px] text-muted-foreground uppercase">
+                      GLOBAL
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                      RESUMEN POR CATEGORÍA
+                    </h4>
+                    {pieData
+                      .filter((d) => d.name !== "Asistencia")
+                      .map((item) => (
+                        <div
+                          key={item.name}
+                          className="flex items-center justify-between p-2 rounded bg-muted/20 text-sm"
+                        >
+                          <div className="flex items-center gap-2">
+                            {item.name === "Licencias" && (
+                              <Briefcase className="w-4 h-4 text-emerald-500" />
+                            )}
+                            {item.name === "Vacaciones" && (
+                              <Plane className="w-4 h-4 text-amber-500" />
+                            )}
+                            {item.name === "Injustificadas" && (
+                              <XCircle className="w-4 h-4 text-red-500" />
+                            )}
+                            <span>{item.name}</span>
+                          </div>
+                          <span className="font-mono font-medium">
+                            {item.count}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+
+                  <div className="pt-4 border-t border-border">
+                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                      PRÓXIMAS VACACIONES
+                    </h4>
+                    <div className="max-h-[140px] overflow-y-auto space-y-1 pr-2 scrollbar-thin scrollbar-thumb-muted">
+                      {vacationList.map((v) => (
+                        <div
+                          key={v.id}
+                          className="flex justify-between text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          <span>{v.employee_name}</span>
+                          <span>{v.days_count} días</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+          </div>
+        </section>
+
         {/* Comentario JSX: componente que controla los filtros visibles (año, mes, rango) */}
         <FiltersAside
           filters={filters}
@@ -1373,129 +1538,7 @@ const ProductionReport = () => {
           </Accordion>
         </section>
 
-        {/* SECTION: ASISTENCIA / RRHH (layout basado en imagen) */}
-        <section className="space-y-6 pt-6 border-t border-border/50">
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="w-6 h-6 text-emerald-500" />
-            <h2 className="text-2xl font-bold tracking-tight">
-              Informe de Gestión y RRHH
-            </h2>
-          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="bg-card border-border overflow-hidden">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-lg text-blue-400">
-                    Desglose Ausentismos
-                  </CardTitle>
-                  <div className="flex items-center gap-2 px-3 py-1 bg-blue-500/10 rounded-full border border-blue-500/20">
-                    <CheckCircle2 className="w-4 h-4 text-blue-500" />
-                    <span className="text-sm font-bold text-blue-500">
-                      {totalAttendance}% Asistencia
-                    </span>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                <div className="h-[260px] relative flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="45%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={90}
-                        paddingAngle={4}
-                        dataKey="value"
-                        stroke="none"
-                      >
-                        {pieData.map((entry, idx) => (
-                          <Cell key={`cell-${idx}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "var(--card)",
-                          borderRadius: "8px",
-                          border: "1px solid var(--border)",
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-2xl font-bold text-foreground">
-                      {totalAttendance}%
-                    </span>
-                    <span className="text-[10px] text-muted-foreground uppercase">
-                      GLOBAL
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
-                      RESUMEN POR CATEGORÍA
-                    </h4>
-                    {pieData
-                      .filter((d) => d.name !== "Asistencia")
-                      .map((item) => (
-                        <div
-                          key={item.name}
-                          className="flex items-center justify-between p-2 rounded bg-muted/20 text-sm"
-                        >
-                          <div className="flex items-center gap-2">
-                            {item.name === "Licencias" && (
-                              <Briefcase className="w-4 h-4 text-emerald-500" />
-                            )}
-                            {item.name === "Vacaciones" && (
-                              <Plane className="w-4 h-4 text-amber-500" />
-                            )}
-                            {item.name === "Injustificadas" && (
-                              <XCircle className="w-4 h-4 text-red-500" />
-                            )}
-                            <span>{item.name}</span>
-                          </div>
-                          <span className="font-mono font-medium">
-                            {item.count}
-                          </span>
-                        </div>
-                      ))}
-                  </div>
-
-                  <div className="pt-4 border-t border-border">
-                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
-                      PRÓXIMAS VACACIONES
-                    </h4>
-                    <div className="max-h-[140px] overflow-y-auto space-y-1 pr-2 scrollbar-thin scrollbar-thumb-muted">
-                      {vacationList.map((v) => (
-                        <div
-                          key={v.id}
-                          className="flex justify-between text-xs text-muted-foreground hover:text-foreground"
-                        >
-                          <span>{v.employee_name}</span>
-                          <span>{v.days_count} días</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* RIGHT: Executive RRHH summary */}
-            <ExecutiveSummaryPanel
-              totalProduction={totalProduction}
-              efficiency={efficiency}
-              totalAbsences={totalAbsences}
-              totalAttendance={totalAttendance}
-            />
-          </div>
-        </section>
       </div>
     </ProductionReportLayout>
   );
