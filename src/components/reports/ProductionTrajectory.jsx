@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import {
   LineChart,
@@ -30,8 +30,8 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
   const [selectedYear, setSelectedYear] = useState("2025");
   const [selectedMonth, setSelectedMonth] = useState("all");
 
-  // State for interactivity: which plant is currently focused/highlighted
-  const [focusedPlant, setFocusedPlant] = useState(null);
+  // State for interactivity: visible plants map to allow multi-select from legend
+  const [visiblePlants, setVisiblePlants] = useState({});
 
   // --- HELPER: Resolve Client Name ---
   const getStr = (r, key) => {
@@ -157,12 +157,31 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
     return { chartData: finalData, plantNames: finalPlants };
   }, [records, selectedYear, selectedMonth, clientMapping]);
 
-  // --- INTERACTION HANDLERS ---
+  // Initialize visiblePlants when plantNames change (default: all unselected)
+  useEffect(() => {
+    if (!plantNames) return;
+    setVisiblePlants((prev) => {
+      const next = { ...prev };
+      plantNames.forEach((p) => {
+        if (!(p in next)) next[p] = false;
+      });
+      // remove keys not present any more
+      Object.keys(next).forEach((k) => {
+        if (!plantNames.includes(k)) delete next[k];
+      });
+      return next;
+    });
+  }, [plantNames]);
+
+  // Toggle selection for a plant when legend is clicked (multi-select)
   const handleLegendClick = (e) => {
-    // Recharts Legend 'onClick' passes the payload, where 'value' is the name/dataKey
-    const plantName = e.value;
-    setFocusedPlant((prev) => (prev === plantName ? null : plantName));
+    const plantName = e?.value ?? (e?.payload && e.payload.value);
+    if (!plantName) return;
+    setVisiblePlants((prev) => ({ ...(prev || {}), [plantName]: !prev?.[plantName] }));
   };
+
+  // Whether there is any selected plant (when true, we accentuate selected ones)
+  const anySelected = Object.values(visiblePlants || {}).some(Boolean);
 
   return (
     <Card className="border-border bg-card shadow-lg">
@@ -230,7 +249,8 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
               <MousePointerClick className="w-4 h-4 text-primary shrink-0 mt-0.5" />
               <p>
                 Tip: Haz clic en el nombre de una planta en la leyenda para
-                resaltar su línea.
+                alternar su visibilidad. Puedes seleccionar varias para
+                comparar líneas.
               </p>
             </div>
           </div>
@@ -301,14 +321,12 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
                   iconType="circle"
                   wrapperStyle={{ paddingTop: "20px", cursor: "pointer" }}
                   onClick={handleLegendClick}
-                  formatter={(value, entry) => {
-                    const isDimmed = focusedPlant && focusedPlant !== value;
+                  formatter={(value) => {
+                    const selected = anySelected ? !!visiblePlants?.[value] : true;
                     return (
                       <span
-                        className={`ml-1 text-sm ${isDimmed ? "opacity-40" : "opacity-100"}`}
-                        style={{
-                          fontWeight: focusedPlant === value ? 600 : 400,
-                        }}
+                        className={`ml-1 text-sm ${selected ? "opacity-100" : "opacity-40"}`}
+                        style={{ fontWeight: selected ? 700 : 400 }}
                       >
                         {value}
                       </span>
@@ -317,9 +335,14 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
                 />
 
                 {plantNames.map((plant, index) => {
-                  // Interaction Logic
-                  const isFocused = focusedPlant === plant;
-                  const isDimmed = focusedPlant && !isFocused;
+                  const isSelected = anySelected ? !!visiblePlants?.[plant] : false;
+                  // Styling rules:
+                  // - If anySelected is true: selected lines are accentuated, others are muted
+                  // - If none selected: all lines render normally
+                  const stroke = COLORS[index % COLORS.length];
+                  const strokeWidth = anySelected ? (isSelected ? 5 : 2) : 3;
+                  const strokeOpacity = anySelected ? (isSelected ? 1 : 0.12) : 1;
+                  const showDots = anySelected ? isSelected : false;
 
                   return (
                     <Line
@@ -327,12 +350,10 @@ const ProductionTrajectory = ({ records, clientMapping }) => {
                       type="monotone"
                       dataKey={plant}
                       name={plant}
-                      stroke={COLORS[index % COLORS.length]}
-                      // Dynamic styling based on focus state
-                      strokeWidth={isFocused ? 5 : 3}
-                      strokeOpacity={isDimmed ? 0.15 : 1}
-                      // Only show dots for focused line to reduce clutter, or default if none focused
-                      dot={isFocused ? { r: 4, strokeWidth: 0 } : false}
+                      stroke={stroke}
+                      strokeWidth={strokeWidth}
+                      strokeOpacity={strokeOpacity}
+                      dot={showDots ? { r: 4 } : false}
                       activeDot={{ r: 6, strokeWidth: 0 }}
                       connectNulls
                       animationDuration={500}
