@@ -14,6 +14,9 @@ import {
   PieChart,
   Pie,
   Cell,
+  LineChart,
+  Legend,
+  Line,
 } from "recharts";
 
 // Iconografía
@@ -56,6 +59,8 @@ import ExecutiveSummary from "@/components/reports/ui/ExecutiveSummary";
 
 // Hooks
 import { useProductionReports } from "@/hooks/useReports";
+import { useInterannualComparison } from '@/hooks/useInterannualComparison';
+
 
 // --------------------------------------------------
 // Comentarios (en español):
@@ -120,6 +125,11 @@ const ProductionReport = () => {
     loading,
   } = useProductionReports();
 
+  // Debugging outputs to inspect data during development
+  try {
+    console.debug("[ProductionReport] productionRecords:", productionRecords?.length);
+  } catch (e) {}
+
   // ---------------------------
   // ---------------------------
   // Estado y control de filtros visibles en UI (año, mes, rango de fechas)
@@ -160,6 +170,14 @@ const ProductionReport = () => {
   const [compareYearB, setCompareYearB] = useState(
     availableYears[availableYears.length - 1] || "",
   );
+
+  // Ensure compare years are set once availableYears are computed
+  useEffect(() => {
+    if (availableYears && availableYears.length > 1) {
+      setCompareYearA((prev) => prev || availableYears[availableYears.length - 2] || availableYears[0]);
+      setCompareYearB((prev) => prev || availableYears[availableYears.length - 1] || availableYears[0]);
+    }
+  }, [availableYears]);
 
   // Busca la fecha máxima en los registros y actualiza filtros iniciales
   useEffect(() => {
@@ -447,37 +465,19 @@ const ProductionReport = () => {
   }, [historicalFilteredRecords]);
 
   // Compara dos años mes a mes (A vs B)
-  const interannualComparison = useMemo(() => {
-    if (!compareYearA || !compareYearB) return [];
+  const interannualComparison = useInterannualComparison({
+    records: productionRecords,
+    yearA: compareYearA,
+    yearB: compareYearB,
+    getVal,
+  });
 
-    const base = Array.from({ length: 12 }, (_, i) => ({
-      month: i,
-      label: new Date(2000, i).toLocaleString("es-CL", { month: "short" }),
-      [compareYearA]: 0,
-      [compareYearB]: 0,
-    }));
+  try {
+    console.debug("[ProductionReport] interannualComparison sample:", interannualComparison?.slice?.(0, 3));
+  } catch (e) {}
 
-    filteredRecords.forEach((r) => {
-      const year = Number(getVal(r, "año"));
-      const month = Number(getVal(r, "mes"));
-      const value =
-        Number(getVal(r, "completado")) ||
-        Number(getVal(r, "completado real")) ||
-        0;
 
-      if (month == null || Number.isNaN(month)) return;
 
-      if (year === Number(compareYearA)) {
-        base[month][compareYearA] += value;
-      }
-
-      if (year === Number(compareYearB)) {
-        base[month][compareYearB] += value;
-      }
-    });
-
-    return base;
-  }, [filteredRecords, compareYearA, compareYearB]);
 
   // Valores auxiliares derivados de KPIs y registros filtrados
   const totalProductionVal =
@@ -701,6 +701,9 @@ const ProductionReport = () => {
       </div>
     );
   }
+
+  
+
 
   // Render principal del layout del reporte
   return (
@@ -1326,91 +1329,97 @@ const ProductionReport = () => {
         </section>
 
         <section className="mt-12 border border-border rounded-xl p-6">
-          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-            <h3 className="text-xl font-bold">
-              Comparativo Interanual de Producción
-            </h3>
+          <Accordion type="single" collapsible>
+            <AccordionItem value="interannual-comparison">
+              <AccordionTrigger className="text-xl font-bold">
+                Comparativo Interanual de Producción
+              </AccordionTrigger>
 
-            {/* Filtros de comparación */}
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Año A
-                </span>
-                <select
-                  className="border rounded-md px-3 py-2 bg-background text-sm"
-                  value={compareYearA}
-                  onChange={(e) => setCompareYearA(e.target.value)}
-                >
-                  {availableYears.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <AccordionContent>
+                <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+                  {/* Filtros de comparación */}
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Año A
+                      </span>
+                      <select
+                        className="border rounded-md px-3 py-2 bg-background text-sm"
+                        value={compareYearA}
+                        onChange={(e) => setCompareYearA(e.target.value)}
+                      >
+                        {availableYears.map((y) => (
+                          <option key={y} value={y}>
+                            {y}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Año B
-                </span>
-                <select
-                  className="border rounded-md px-3 py-2 bg-background text-sm"
-                  value={compareYearB}
-                  onChange={(e) => setCompareYearB(e.target.value)}
-                >
-                  {availableYears.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Año B
+                      </span>
+                      <select
+                        className="border rounded-md px-3 py-2 bg-background text-sm"
+                        value={compareYearB}
+                        onChange={(e) => setCompareYearB(e.target.value)}
+                      >
+                        {availableYears.map((y) => (
+                          <option key={y} value={y}>
+                            {y}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
 
-          {/* Gráfico */}
-          <div className="h-[360px]">
-            {interannualComparison.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={interannualComparison}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    opacity={0.2}
-                    vertical={false}
-                  />
-                  <XAxis dataKey="label" />
-                  <YAxis />
-                  <Tooltip
-                    formatter={(v) => `${Number(v).toLocaleString()} kg`}
-                  />
-                  <Legend />
+                {/* Gráfico */}
+                <div className="h-[360px]">
+                  {interannualComparison.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={interannualComparison}>
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          opacity={0.2}
+                          vertical={false}
+                        />
+                        <XAxis dataKey="label" />
+                        <YAxis />
+                        <Tooltip
+                          formatter={(v) => `${Number(v).toLocaleString()} kg`}
+                        />
+                        <Legend />
 
-                  <Line
-                    type="monotone"
-                    dataKey={compareYearA}
-                    name={compareYearA}
-                    stroke="#6366f1"
-                    strokeWidth={2}
-                    dot={false}
-                  />
+                        <Line
+                          type="monotone"
+                          dataKey={compareYearA}
+                          name={compareYearA}
+                          stroke="#6366f1"
+                          strokeWidth={2}
+                          dot={false}
+                        />
 
-                  <Line
-                    type="monotone"
-                    dataKey={compareYearB}
-                    name={compareYearB}
-                    stroke="#22c55e"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-muted-foreground">
-                Selecciona dos años válidos para visualizar el comparativo
-              </div>
-            )}
-          </div>
+                        <Line
+                          type="monotone"
+                          dataKey={compareYearB}
+                          name={compareYearB}
+                          stroke="#22c55e"
+                          strokeWidth={2}
+                          dot={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground">
+                      Selecciona dos años válidos para visualizar el comparativo
+                    </div>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </section>
 
         {/* SECTION: ASISTENCIA / RRHH (layout basado en imagen) */}
