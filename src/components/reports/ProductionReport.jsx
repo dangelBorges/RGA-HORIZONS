@@ -179,6 +179,21 @@ const ProductionReport = () => {
     }
   }, [availableYears]);
 
+  // Visibility toggles for interannual comparison series and dots
+  const [visibleSeries, setVisibleSeries] = useState({});
+  const [showDots, setShowDots] = useState(true);
+
+  useEffect(() => {
+    // initialize visibility for current compare years
+    if (compareYearA || compareYearB) {
+      setVisibleSeries((prev) => ({
+        ...(prev || {}),
+        [compareYearA]: prev[compareYearA] ?? true,
+        [compareYearB]: prev[compareYearB] ?? true,
+      }));
+    }
+  }, [compareYearA, compareYearB]);
+
   // Busca la fecha máxima en los registros y actualiza filtros iniciales
   useEffect(() => {
     if (
@@ -708,7 +723,8 @@ const ProductionReport = () => {
   // Render principal del layout del reporte
   return (
     <ProductionReportLayout>
-      <div className="space-y-6 pb-10">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:block p-2 bg-primary text-white rounded-md z-50 fixed top-4 left-4">Saltar al contenido</a>
+      <div id="main-content" role="main" className="space-y-6 pb-10">
         {/* Comentario JSX: componente que controla los filtros visibles (año, mes, rango) */}
         <ProductionFilters
           filters={filters}
@@ -838,7 +854,7 @@ const ProductionReport = () => {
                     Total completado agrupado por cliente de GP Chile
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex-1 min-h-0 pt-4">
+                <CardContent className="flex-1 min-h-0 pt-2">
                   {productionByPlant.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
@@ -913,7 +929,7 @@ const ProductionReport = () => {
                   <CardDescription>Ranking por volumen</CardDescription>
                 </CardHeader>
 
-                <CardContent className="overflow-y-auto pr-2 scrollbar-thin">
+                <CardContent className="overflow-y-auto pr-2 p-3 scrollbar-thin">
                   {productionByClient.length > 0 ? (
                     productionByClient.map((client) => (
                       <ClientRankItem
@@ -1377,6 +1393,35 @@ const ProductionReport = () => {
 
                 {/* Gráfico */}
                 <div className="h-[360px]">
+                  <div className="flex items-center justify-end gap-3 mb-2">
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="text-sm px-2 py-1 border rounded"
+                        onClick={() => setShowDots((s) => !s)}
+                        aria-pressed={showDots}
+                      >
+                        {showDots ? "Ocultar puntos" : "Mostrar puntos"}
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* custom legend toggles */}
+                      {[compareYearA, compareYearB].filter(Boolean).map((y, idx) => {
+                        const color = idx === 0 ? "#6366f1" : "#22c55e";
+                        const visible = visibleSeries?.[y] ?? true;
+                        return (
+                          <button
+                            key={y}
+                            onClick={() => setVisibleSeries((vs) => ({ ...vs, [y]: !vs[y] }))}
+                            className={`flex items-center gap-2 px-2 py-1 rounded border ${visible ? '' : 'opacity-40'}`}
+                            aria-pressed={visible}
+                          >
+                            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: color }} />
+                            <span className="text-xs">{y}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                   {interannualComparison.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={interannualComparison}>
@@ -1392,23 +1437,27 @@ const ProductionReport = () => {
                         />
                         <Legend />
 
-                        <Line
-                          type="monotone"
-                          dataKey={compareYearA}
-                          name={compareYearA}
-                          stroke="#6366f1"
-                          strokeWidth={2}
-                          dot={false}
-                        />
+                        {visibleSeries?.[compareYearA] !== false && (
+                          <Line
+                            type="monotone"
+                            dataKey={compareYearA}
+                            name={compareYearA}
+                            stroke="#6366f1"
+                            strokeWidth={2}
+                            dot={showDots ? { r: 3 } : false}
+                          />
+                        )}
 
-                        <Line
-                          type="monotone"
-                          dataKey={compareYearB}
-                          name={compareYearB}
-                          stroke="#22c55e"
-                          strokeWidth={2}
-                          dot={false}
-                        />
+                        {visibleSeries?.[compareYearB] !== false && (
+                          <Line
+                            type="monotone"
+                            dataKey={compareYearB}
+                            name={compareYearB}
+                            stroke="#22c55e"
+                            strokeWidth={2}
+                            dot={showDots ? { r: 3 } : false}
+                          />
+                        )}
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
@@ -1447,7 +1496,7 @@ const ProductionReport = () => {
                 </div>
               </CardHeader>
 
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                 <div className="h-[260px] relative flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
