@@ -171,11 +171,11 @@ export default function ProductionHistoricalProducts({ availableYears = [] }) {
       {/* CENTRO */}
       <div className="lg:col-span-7 flex flex-col gap-6">
         {/* HISTÓRICO */}
-        <Card className="h-[300px]">
+        <Card className="h-[300px] bg-card border-border flex flex-col">
           <CardHeader>
             <CardTitle>Producción histórica</CardTitle>
           </CardHeader>
-          <CardContent className="h-full">
+          <CardContent className="flex-1 overflow-hidden">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={historicalData}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
@@ -195,11 +195,11 @@ export default function ProductionHistoricalProducts({ availableYears = [] }) {
         </Card>
 
         {/* TOP 10 */}
-        <Card className="h-[280px]">
+        <Card className="h-[280px] bg-card border-border flex flex-col">
           <CardHeader>
             <CardTitle>Top 10 productos más vendidos</CardTitle>
           </CardHeader>
-          <CardContent className="h-full">
+          <CardContent className="flex-1 overflow-hidden">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={topProducts}

@@ -1232,14 +1232,14 @@ const ProductionReport = () => {
                   {/* ================= GRÁFICO ================= */}
                   {/* AreaChart que muestra producción histórica por periodo (YYYY-MM) */}
                   <div className="lg:col-span-12">
-                    <Card className="bg-card border-border shadow-lg h-[420px]">
+                    <Card className="bg-card border-border shadow-lg h-[420px] flex flex-col">
                       <CardHeader>
                         <CardTitle className="text-sm uppercase tracking-wider text-indigo-400">
                           Producción histórica (kg)
                         </CardTitle>
                       </CardHeader>
 
-                      <CardContent className="h-full">
+                      <CardContent className="flex-1 overflow-hidden">
                         {historicalDensityData.length > 0 ? (
                           <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={historicalDensityData}>
@@ -1351,32 +1351,34 @@ const ProductionReport = () => {
               <AccordionContent className="pt-6 space-y-6">
                 {/* FILA 1: Incrementos / Descensos */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Card className="h-[380px] bg-card border-border">
+                  <Card className="h-[380px] bg-card border-border flex flex-col">
                     <CardHeader>
                       <CardTitle className="text-sm uppercase tracking-wider text-emerald-400">
                         Incremento de demanda por cliente
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="h-full">
+                    <CardContent className="flex-1 overflow-hidden">
                       <ClientBarChart
                         data={topClientsWithIncrease}
                         valueKey="diff"
                         valueLabel="Incremento vs promedio histórico"
+                        barColor="#34d399" 
                       />
                     </CardContent>
                   </Card>
 
-                  <Card className="h-[380px] bg-card border-border">
+                  <Card className="h-[380px] bg-card border-border flex flex-col">
                     <CardHeader>
                       <CardTitle className="text-sm uppercase tracking-wider text-rose-400">
                         Disminución de demanda por cliente
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="h-full">
+                    <CardContent className="flex-1 overflow-hidden">
                       <ClientBarChart
                         data={topClientsWithDecrease}
                         valueKey="diff"
                         valueLabel="Disminución vs promedio histórico"
+                        barColor="#fb7185" 
                       />
                     </CardContent>
                   </Card>
@@ -1384,32 +1386,34 @@ const ProductionReport = () => {
 
                 {/* FILA 2: Nuevos / Perdidos */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Card className="h-[300px] bg-card border-border">
+                  <Card className="h-[300px] bg-card border-border flex flex-col">
                     <CardHeader>
                       <CardTitle className="text-sm uppercase tracking-wider text-indigo-400">
                         Clientes nuevos
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="h-full">
+                    <CardContent className="flex-1 overflow-hidden">
                       <ClientBarChart
                         data={topNewClients}
                         valueKey="volume"
                         valueLabel="Demanda primer año"
+                        barColor="#818cf8" 
                       />
                     </CardContent>
                   </Card>
 
-                  <Card className="h-[300px] bg-card border-border">
+                  <Card className="h-[300px] bg-card border-border flex flex-col">
                     <CardHeader>
                       <CardTitle className="text-sm uppercase tracking-wider text-amber-400">
                         Clientes perdidos
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="h-full">
+                    <CardContent className="flex-1 overflow-hidden">
                       <ClientBarChart
                         data={topLostClients}
                         valueKey="lastYearVolume"
                         valueLabel="Última demanda registrada"
+                        barColor="#fbbf24"
                       />
                     </CardContent>
                   </Card>

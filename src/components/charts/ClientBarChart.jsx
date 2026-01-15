@@ -11,6 +11,7 @@ export default function ClientBarChart({
     data,
     valueKey,
     valueLabel = "Volumen",
+    barColor = "#6366f1"
 }) {
     if (!data || data.length === 0) {
         return (
@@ -44,7 +45,7 @@ export default function ClientBarChart({
                     labelFormatter={(label) => `Cliente: ${label}`}
                 />
 
-                <Bar dataKey={valueKey} fill="#6366f1" radius={[0, 6, 6, 0]} />
+                <Bar dataKey={valueKey} fill={barColor} radius={[0, 6, 6, 0]} />
             </BarChart>
         </ResponsiveContainer>
     );
