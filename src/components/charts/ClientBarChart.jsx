@@ -6,13 +6,24 @@ import {
     Tooltip,
     ResponsiveContainer,
 } from "recharts";
+import { useEffect, useState } from "react";
 
 export default function ClientBarChart({
     data,
     valueKey,
     valueLabel = "Volumen",
-    barColor = "#6366f1"
+    barColor = "#6366f1", // nuevo
 }) {
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const mq = window.matchMedia("(max-width: 640px)");
+        const handler = () => setIsMobile(mq.matches);
+        handler();
+        mq.addEventListener("change", handler);
+        return () => mq.removeEventListener("change", handler);
+    }, []);
+
     if (!data || data.length === 0) {
         return (
             <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -26,10 +37,22 @@ export default function ClientBarChart({
             <BarChart
                 data={data}
                 layout="vertical"
-                margin={{ top: 10, right: 20, left: 80, bottom: 10 }}
+                margin={{
+                    top: 10,
+                    right: 20,
+                    left: isMobile ? 70 : 140,
+                    bottom: 10,
+                }}
             >
                 <XAxis type="number" />
-                <YAxis type="category" dataKey="client" width={200}/>
+                <YAxis
+                    type="category"
+                    dataKey="client"
+                    width={160}
+                    tick={{ fontSize: 12 }}
+                    interval={0}
+                />
+
                 <Tooltip
                     formatter={(value, name, props) => {
                         if (props.payload?.diffPercent !== undefined) {
@@ -45,7 +68,11 @@ export default function ClientBarChart({
                     labelFormatter={(label) => `Cliente: ${label}`}
                 />
 
-                <Bar dataKey={valueKey} fill={barColor} radius={[0, 6, 6, 0]} />
+                <Bar
+                    dataKey={valueKey}
+                    fill={barColor}
+                    radius={[0, 6, 6, 0]}
+                />
             </BarChart>
         </ResponsiveContainer>
     );
