@@ -54,7 +54,7 @@ const TopRawMaterialsChart = ({ year, month }) => {
                                 dataKey="material_name"
                                 width={200}
                                 tick={{
-                                    fill: "#0f172a",
+                                    fill: "#475569",
                                     fontSize: 12,
                                     fontWeight: 500,
                                 }}

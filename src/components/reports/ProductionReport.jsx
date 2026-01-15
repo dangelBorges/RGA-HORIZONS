@@ -495,29 +495,29 @@ const ProductionReport = () => {
     console.debug("[ProductionReport] interannualComparison sample:", interannualComparison?.slice?.(0, 3));
   } catch (e) { }
 
-  
+
   const lastPeriodRecords = useMemo(() => {
-  if (!productionRecords || productionRecords.length === 0) return [];
+    if (!productionRecords || productionRecords.length === 0) return [];
 
-  // ordenamos por fecha descendente
-  const sorted = [...productionRecords].sort((a, b) => {
-    const da = new Date(getStr(a, "fecha"));
-    const db = new Date(getStr(b, "fecha"));
-    return db - da;
-  });
+    // ordenamos por fecha descendente
+    const sorted = [...productionRecords].sort((a, b) => {
+      const da = new Date(getStr(a, "fecha"));
+      const db = new Date(getStr(b, "fecha"));
+      return db - da;
+    });
 
-  const lastDate = new Date(getStr(sorted[0], "fecha"));
-  const lastMonth = lastDate.getMonth();
-  const lastYear = lastDate.getFullYear();
+    const lastDate = new Date(getStr(sorted[0], "fecha"));
+    const lastMonth = lastDate.getMonth();
+    const lastYear = lastDate.getFullYear();
 
-  return sorted.filter((r) => {
-    const d = new Date(getStr(r, "fecha"));
-    return (
-      d.getMonth() === lastMonth &&
-      d.getFullYear() === lastYear
-    );
-  });
-}, [productionRecords, getStr]);
+    return sorted.filter((r) => {
+      const d = new Date(getStr(r, "fecha"));
+      return (
+        d.getMonth() === lastMonth &&
+        d.getFullYear() === lastYear
+      );
+    });
+  }, [productionRecords, getStr]);
 
 
 
@@ -546,11 +546,11 @@ const ProductionReport = () => {
       : 0;
 
 
- const executiveSummary = useExecutiveSummary({
-  records: productionRecords, // o lastPeriodRecords si ya lo tienes
-  getStr,
-  getVal
-});
+  const executiveSummary = useExecutiveSummary({
+    records: productionRecords, // o lastPeriodRecords si ya lo tienes
+    getStr,
+    getVal
+  });
 
 
 
@@ -784,7 +784,7 @@ const ProductionReport = () => {
               totalAbsences={totalAbsences}
               totalAttendance={totalAttendance}
             />
-            {/* RIGHT: Pie chart de asistencia y desglose de ausentismos */}          
+            {/* RIGHT: Pie chart de asistencia y desglose de ausentismos */}
             <Card className="bg-card border-border overflow-hidden">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-center">
@@ -1114,12 +1114,20 @@ const ProductionReport = () => {
                               vertical={false}
                               opacity={0.2}
                             />
-                            <XAxis type="number" />
-                            <YAxis
-                              dataKey="producto"
-                              type="category"
-                              width={200}
-                            />
+                            <XAxis type="number"
+                              tick={{ fill: "#475569", fontSize: 11 }}
+                              axisLine={false}
+                              tickLine={false} />
+
+                            <YAxis dataKey="producto" type="category" width={200}
+                                      tick={{
+                                        fill: "#475569",
+                                        fontSize: 12,
+                                        fontWeight: 500,
+                                      }}
+                                      axisLine={false}
+                                      tickLine={false} />
+                            
                             <Tooltip
                               formatter={(v) =>
                                 `${Number(v).toLocaleString()} kg`

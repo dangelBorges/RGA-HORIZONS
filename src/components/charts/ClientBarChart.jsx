@@ -28,7 +28,7 @@ export default function ClientBarChart({
                 margin={{ top: 10, right: 20, left: 80, bottom: 10 }}
             >
                 <XAxis type="number" />
-                <YAxis type="category" dataKey="client" />
+                <YAxis type="category" dataKey="client" width={200}/>
                 <Tooltip
                     formatter={(value, name, props) => {
                         if (props.payload?.diffPercent !== undefined) {

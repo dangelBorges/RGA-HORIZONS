@@ -16,8 +16,18 @@ const TopProductsChart = ({ data = [], hasData = true }) => {
     <ResponsiveContainer width="100%" height={360}>
       <BarChart data={items} layout="vertical" margin={{ top: 10, right: 20, left: 20, bottom: 10 }}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis type="number" />
-        <YAxis dataKey="product" type="category" width={160} />
+        <XAxis type="number"
+          tick={{ fill: "#475569", fontSize: 11 }}
+          axisLine={false}
+          tickLine={false} />
+        <YAxis dataKey="product" type="category" width={200}
+          tick={{
+            fill: "#475569",
+            fontSize: 10,
+            fontWeight: 500,
+          }}
+          axisLine={false}
+          tickLine={false} />
         <Tooltip />
         <Bar dataKey="volume_kilos" fill="#6366F1" />
       </BarChart>
